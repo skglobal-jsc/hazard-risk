@@ -42,6 +42,7 @@ export interface AnalyzeRiskOptions {
   gridSize: number; // mét
   zoom: number;
   hazardConfig?: HazardConfig; // Cấu hình hazard
+  currentLocation?: { lat: number; lon: number };
 }
 
 // Kết quả phân tích

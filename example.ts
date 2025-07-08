@@ -2,20 +2,29 @@ import { analyzeRiskInPolygon } from './src/index';
 import { createHazardConfig, classifyRiskFromRGB, DEFAULT_TSUNAMI_CONFIG } from './src/risk';
 import { TileCache } from './src/cache';
 import * as turf from '@turf/turf';
+import { HazardConfig } from './src/types';
+
+
+const RADIUS = 1000;
+const GRID_SIZE = 20;
+const ZOOM = 13;
+
+const TILE_URL = 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
+const BASE_TILE_URL = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
 
 async function main() {
   console.log('🚀 Bắt đầu phân tích rủi ro...\n');
 
   // Tạo polygon hình tròn bán kính 100m quanh vị trí mới
   const center = turf.point([141.3543113869357, 43.06194898993809]);
-  const radius = 100;
+  const radius = RADIUS;
   const polygon = turf.circle(center, radius, { units: 'meters' });
 
   // Tạo cache với preload
   const tileCache = new TileCache(200 * 1024 * 1024, 10 * 60 * 1000); // 200MB, 10 phút
 
   // Hazard config theo bảng màu GSI Japan
-  const hazardConfig = {
+  const hazardConfig: HazardConfig = {
     name: 'Tsunami Depth (GSI Japan)',
     levels: {
       0: {
@@ -64,7 +73,7 @@ async function main() {
         description: '>20m'
       }
     },
-    waterColors: ['#bed2ff', '#a8c8ff', '#8bb8ff', '#6aa8ff']
+    waterColors: ['#bed2ff', '#a8c8ff', '#8bb8ff', '#6aa8ff'],
   };
 
   console.log('📍 Vị trí phân tích:');
@@ -91,30 +100,43 @@ async function main() {
     // Phân tích rủi ro với cache
     const result = await analyzeRiskInPolygon({
       polygon: polygon.geometry,
-      hazardTileUrl: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png', // Hazard tile (GSI Japan)
-      baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', // Base tile (GSI Japan)
-      gridSize: 5, // 5 mét
-      zoom: 15,
-      hazardConfig: hazardConfig
+      hazardTileUrl: TILE_URL, // Hazard tile (GSI Japan)
+      baseTileUrl: BASE_TILE_URL, // Base tile (GSI Japan)
+      gridSize: GRID_SIZE, // 5 mét
+      zoom: ZOOM,
+      hazardConfig: hazardConfig,
+
+      currentLocation: {
+        lat: center.geometry.coordinates[1],
+        lon: center.geometry.coordinates[0]
+      }
     }, tileCache);
     // Đo thời gian kết thúc
     const end = Date.now();
     console.log(`⏱️  Thời gian thực thi: ${(end - start) / 1000}s\n`);
 
-    console.log('📊 Kết quả phân tích:');
-    console.log(`   Tổng điểm: ${result.total}`);
-    console.log(`   Điểm rủi ro: ${result.stats.filter(s => s.level !== 'water').reduce((sum, s) => sum + s.count, 0)}\n`);
+    console.log('📊 Kết quả phân tích:', result);
+    console.log(`   Tổng điểm: ${result.stats.total}`);
+    // Tính tổng điểm risk (level > 0)
+    const totalRisk = Object.keys(result.stats)
+      .filter(k => k !== 'total' && Number(k) > 0)
+      .reduce((sum, k) => sum + result.stats[k], 0);
+    console.log(`   Điểm rủi ro: ${totalRisk}\n`);
 
     console.log('📈 Thống kê chi tiết:');
-    for (const stat of result.stats) {
-      if (stat.level === 'water') {
-        console.log(`   💧 Nước: ${stat.count} điểm (${stat.ratio.toFixed(1)}%)`);
-      } else {
-        const levelConfig = hazardConfig.levels[stat.level as number];
-        const colorType = levelConfig.color.startsWith('#') ? 'HEX' : 'RGB';
-        console.log(`   Level ${stat.level} (${levelConfig.name}): ${stat.count} điểm (${stat.ratio.toFixed(1)}%)`);
+    for (const level of Object.keys(result.stats)) {
+      if (level === 'total') continue;
+      const levelConfig = result.hazardConfig.levels[level];
+      const colorType = levelConfig?.color?.startsWith('#') ? 'HEX' : 'RGB';
+      console.log(`   Level ${level} (${levelConfig?.name || ''}): ${result.stats[level]} điểm`);
+      if (levelConfig) {
         console.log(`     Mô tả: ${levelConfig.description}`);
         console.log(`     Màu: ${levelConfig.color} (${colorType})`);
+      }
+      // In nearest point nếu có
+      if (result.nearestPoints && result.nearestPoints[level]) {
+        const np = result.nearestPoints[level];
+        console.log(`     Gần nhất: (${np.latitude}, ${np.longitude}), cách tâm ${np.distance} độ`);
       }
     }
 
