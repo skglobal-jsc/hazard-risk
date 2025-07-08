@@ -5,9 +5,9 @@ import * as turf from '@turf/turf';
 import { HazardConfig } from './src/types';
 
 
-const RADIUS = 1000;
-const GRID_SIZE = 20;
-const ZOOM = 13;
+const RADIUS = 3000;
+const GRID_SIZE = 80;
+const ZOOM = 12;
 
 const TILE_URL = 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
 const BASE_TILE_URL = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
@@ -73,7 +73,7 @@ async function main() {
         description: '>20m'
       }
     },
-    waterColors: ['#bed2ff', '#a8c8ff', '#8bb8ff', '#6aa8ff'],
+    waterColors: ['#bed2ff', '#f7f5a9', '#8bb8ff', '#6aa8ff'],
   };
 
   console.log('📍 Vị trí phân tích:');
