@@ -216,7 +216,6 @@ The library supports dynamic risk classification based on RGB colors. Default ts
 - `@turf/turf`: Polygon processing, bounding box calculations
 - `pngjs`: PNG image processing (Node.js)
 - `axios`: HTTP requests for tile fetching
-- `@mapbox/tilebelt`: Tile coordinate calculations
 
 ## Performance Features
 
