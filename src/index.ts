@@ -1,6 +1,6 @@
 import { createGrid } from './grid';
 import { classifyRiskFromRGB, calculateRiskStats, isWaterColor, DEFAULT_TSUNAMI_CONFIG } from './risk';
-import { NodeRasterReader, BrowserRasterReader, createTileProvider } from './raster';
+import { createNodeTileProvider, NodeRasterReader } from './raster';
 import { TileCache } from './cache';
 import type { AnalyzeRiskOptions, AnalyzeRiskResult, GridPoint, HazardConfig } from './types';
 import { PNG, PNGWithMetadata } from 'pngjs';
@@ -138,13 +138,25 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
     currentLocation
   } = options;
 
-  const hazardTileProvider = createTileProvider(hazardTileUrl, cache);
-  const baseTileProvider = createTileProvider(baseTileUrl, cache);
+  // Chỉ dùng createNodeTileProvider cho Node.js
+  let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
+  let baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
+  if (typeof window === 'undefined') {
+    hazardTileProvider = createNodeTileProvider(hazardTileUrl, cache);
+    baseTileProvider = createNodeTileProvider(baseTileUrl, cache);
+  } else {
+    // Nếu muốn hỗ trợ browser, sẽ dùng provider khác ở bước sau
+    throw new Error('Browser environment not supported in this Node.js pipeline');
+  }
+
   const grid = createGrid(polygon, gridSize, zoom);
   const tileCoords = [...new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`))]
     .map(key => { const [z, x, y] = key.split('/').map(Number); return { z, x, y }; });
   await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
 
+  const rasterReader = new NodeRasterReader(hazardTileProvider);
+
+  // Pipeline xử lý tiếp theo vẫn dùng hazardTileProvider, baseTileProvider (đều là Buffer)
   const result = await calculateStatsAndOptionallyNearestPoints(
     grid,
     hazardTileProvider,
@@ -167,6 +179,6 @@ export type {
   RiskLevelConfig
 } from './types';
 
-export { NodeRasterReader, BrowserRasterReader, createTileProvider } from './raster';
+export { NodeRasterReader } from './raster';
 export { TileCache } from './cache';
 export { DEFAULT_TSUNAMI_CONFIG, createHazardConfig } from './risk';
