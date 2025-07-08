@@ -6,6 +6,7 @@ import type { AnalyzeRiskOptions, AnalyzeRiskResult, GridPoint, HazardConfig } f
 import { PNG, PNGWithMetadata } from 'pngjs';
 import * as turf from '@turf/turf';
 import type { Feature, Point } from 'geojson';
+import { BrowserRasterReader, createBrowserTileProvider } from './raster';
 
 // Preload tất cả tile hazard và base song song
 async function preloadTiles(tileCoords, hazardTileProvider, baseTileProvider) {
@@ -167,6 +168,83 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
   return { ...result, hazardConfig };
 }
 
+// Hàm wrapper cho browser (tương tự analyzeRiskInPolygon cho Node.js)
+export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): Promise<any> {
+  const {
+    polygon,
+    hazardTileUrl,
+    baseTileUrl,
+    gridSize,
+    zoom,
+    hazardConfig = DEFAULT_TSUNAMI_CONFIG,
+    currentLocation
+  } = options;
+
+  // Dùng createBrowserTileProvider cho browser
+  const hazardTileProvider = createBrowserTileProvider(hazardTileUrl);
+  const baseTileProvider = createBrowserTileProvider(baseTileUrl);
+
+  const grid = createGrid(polygon, gridSize, zoom);
+
+  // Xử lý từng điểm trong grid
+  const riskLevels: number[] = [];
+  const waterPoints: GridPoint[] = [];
+  let nearestPoint: GridPoint | null = null;
+  let minDistance = Infinity;
+
+  const rasterReader = new BrowserRasterReader(hazardTileProvider, baseTileProvider);
+
+  for (const point of grid) {
+    try {
+      const { riskLevel, isWater } = await rasterReader.getPixelRiskInfo(
+        point.tile,
+        point.pixel,
+        hazardConfig
+      );
+
+      riskLevels.push(riskLevel);
+      if (isWater) {
+        waterPoints.push(point);
+      }
+
+      // Tìm điểm gần nhất nếu có currentLocation
+      if (currentLocation) {
+        const pointFeature = turf.point([point.lon, point.lat]);
+        const currentPoint = turf.point([currentLocation.lon, currentLocation.lat]);
+        const distance = turf.distance(pointFeature, currentPoint);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestPoint = point;
+        }
+      }
+    } catch (error) {
+      console.warn(`Error processing point:`, error);
+      riskLevels.push(0); // Fallback to level 0
+    }
+  }
+
+  // Tạo GridPoint array với riskLevel đã tính
+  const gridWithRisk = grid.map((point, index) => ({
+    ...point,
+    riskLevel: riskLevels[index],
+    isWater: waterPoints.includes(point)
+  }));
+
+  const stats = calculateRiskStats(gridWithRisk, hazardConfig);
+
+  return {
+    ...stats,
+    hazardConfig,
+    waterPointCount: waterPoints.length,
+    nearestPoint: nearestPoint ? {
+      lat: nearestPoint.lat,
+      lon: nearestPoint.lon,
+      riskLevel: riskLevels[grid.indexOf(nearestPoint)],
+      distance: minDistance
+    } : null
+  };
+}
+
 // Export các type và function cần thiết
 export type {
   RiskLevel,
@@ -180,5 +258,6 @@ export type {
 } from './types';
 
 export { NodeRasterReader } from './raster';
+export { BrowserRasterReader, createBrowserTileProvider } from './raster';
 export { TileCache } from './cache';
 export { DEFAULT_TSUNAMI_CONFIG, createHazardConfig } from './risk';

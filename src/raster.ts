@@ -167,7 +167,8 @@ export class BrowserRasterReader implements RasterReader {
   private level0Color: { r: number; g: number; b: number };
 
   constructor(
-    private tileProvider: (z: number, x: number, y: number) => Promise<ImageBitmap>,
+    private hazardTileProvider: (z: number, x: number, y: number) => Promise<ImageBitmap>,
+    private baseTileProvider?: (z: number, x: number, y: number) => Promise<ImageBitmap>,
     level0Color: string = '0,0,0'
   ) {
     this.level0Color = normalizeColor(level0Color);
@@ -175,7 +176,7 @@ export class BrowserRasterReader implements RasterReader {
 
   async getPixelRGB(tile: TileCoord, pixel: PixelCoord): Promise<{ r: number; g: number; b: number }> {
     try {
-      const tileImage = await this.tileProvider(tile.z, tile.x, tile.y);
+      const tileImage = await this.hazardTileProvider(tile.z, tile.x, tile.y);
 
       // Tạo canvas để đọc pixel
       const canvas = document.createElement('canvas');
@@ -209,10 +210,74 @@ export class BrowserRasterReader implements RasterReader {
     pixel: PixelCoord,
     hazardConfig: HazardConfig
   ): Promise<{ riskLevel: number; isWater: boolean }> {
-    // Lấy màu pixel qua getPixelRGB (đã đúng môi trường)
-    const rgb = await this.getPixelRGB(tile, pixel);
-    const riskLevel = classifyRiskFromRGB(rgb.r, rgb.g, rgb.b, hazardConfig);
-    // isWater: luôn false ở BrowserRasterReader demo này
-    return { riskLevel, isWater: false };
+    try {
+      // Đọc hazard tile để lấy risk level
+      const hazardRgb = await this.getPixelRGB(tile, pixel);
+      const riskLevel = classifyRiskFromRGB(hazardRgb.r, hazardRgb.g, hazardRgb.b, hazardConfig);
+
+      // Đọc base tile để detect water (nếu có baseTileProvider)
+      let isWater = false;
+      if (this.baseTileProvider) {
+        try {
+          const baseTileImage = await this.baseTileProvider(tile.z, tile.x, tile.y);
+
+          // Tạo canvas để đọc pixel từ base tile
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d')!;
+          canvas.width = 256;
+          canvas.height = 256;
+
+          ctx.drawImage(baseTileImage, 0, 0);
+          const imageData = ctx.getImageData(pixel.x, pixel.y, 1, 1);
+          const data = imageData.data;
+
+          const baseRgb = {
+            r: data[0],
+            g: data[1],
+            b: data[2]
+          };
+
+          // Kiểm tra màu nước
+          isWater = isWaterColor(baseRgb.r, baseRgb.g, baseRgb.b, hazardConfig);
+        } catch (error) {
+          console.warn(`Error reading base tile for water detection:`, error);
+          // Nếu không đọc được base tile, giả sử không phải nước
+          isWater = false;
+        }
+      }
+
+      return { riskLevel, isWater };
+    } catch (error) {
+      console.warn(`Error in getPixelRiskInfo:`, error);
+      return { riskLevel: 0, isWater: false };
+    }
   }
+}
+
+// Tile provider cho browser: fetch bằng axios, trả về ImageBitmap
+export function createBrowserTileProvider(urlTemplate: string) {
+  return async (z: number, x: number, y: number): Promise<ImageBitmap> => {
+    const url = urlTemplate
+      .replace('{z}', z.toString())
+      .replace('{x}', x.toString())
+      .replace('{y}', y.toString());
+    try {
+      // Fetch bằng axios, responseType: 'blob'
+      const response = await axios.get(url, { responseType: 'blob' });
+      const blob = response.data;
+      // Tạo ImageBitmap từ blob (browser API)
+      return await createImageBitmap(blob);
+    } catch (error: any) {
+      // Xử lý lỗi 404 hoặc timeout tương tự Node
+      if (error.response?.status === 404) {
+        console.warn(`Tile not found (404): ${url} - Treating as no risk`);
+        throw new Error(`TILE_NOT_FOUND: ${url}`);
+      }
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        console.warn(`Timeout fetching tile: ${url}`);
+        throw new Error(`TIMEOUT: ${url}`);
+      }
+      throw new Error(`Failed to fetch tile ${url}: ${error.message}`);
+    }
+  };
 }
