@@ -1,5 +1,21 @@
-// Risk level (0: none, 1: low, 2: medium, 3: high)
-export type RiskLevel = 0 | 1 | 2 | 3;
+// Risk level có thể là bất kỳ số nào
+export type RiskLevel = number;
+
+// Cấu hình cho một level rủi ro
+export interface RiskLevelConfig {
+  name: string;
+  color: string; // Format: "r,g,b" hoặc "#rrggbb"
+  description: string;
+}
+
+// Cấu hình cho một loại hazard
+export interface HazardConfig {
+  name: string;
+  levels: {
+    [level: number]: RiskLevelConfig;
+  };
+  waterColors?: string[]; // Array các màu nước đã xác định sẵn (format: "#rrggbb")
+}
 
 // Thống kê kết quả rủi ro
 export interface RiskStat {
@@ -15,7 +31,7 @@ export interface GridPoint {
   tile: TileCoord;
   pixel: PixelCoord;
   riskLevel?: RiskLevel;
-  isWater?: boolean;
+  isWater: boolean;
 }
 
 // Tùy chọn phân tích (đơn giản hóa)
@@ -25,13 +41,15 @@ export interface AnalyzeRiskOptions {
   baseTileUrl: string;   // URL template cho base tile
   gridSize: number; // mét
   zoom: number;
+  hazardConfig?: HazardConfig; // Cấu hình hazard
 }
 
 // Kết quả phân tích
 export interface AnalyzeRiskResult {
+  grid: GridPoint[];
   stats: RiskStat[];
   total: number;
-  grid: GridPoint[];
+  hazardConfig?: HazardConfig; // Thêm config vào kết quả
 }
 
 // Polygon dạng GeoJSON
@@ -51,4 +69,16 @@ export interface TileCoord {
 export interface PixelCoord {
   x: number;
   y: number;
+}
+
+export interface TileProvider {
+  getTileUrl: (x: number, y: number, z: number) => string;
+}
+
+export interface AnalysisResult {
+  grid: GridPoint[];
+  stats: RiskStat[];
+  totalPoints: number;
+  waterPoints: number;
+  riskPoints: number;
 }

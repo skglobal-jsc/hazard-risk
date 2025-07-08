@@ -30,7 +30,8 @@ export function createGrid(
           lat,
           lon,
           tile,
-          pixel
+          pixel,
+          isWater: false // Khởi tạo mặc định
         });
       }
     }

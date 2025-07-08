@@ -1,5 +1,5 @@
 import { createGrid } from './grid';
-import { classifyRiskFromRGB, calculateRiskStats } from './risk';
+import { classifyRiskFromRGB, calculateRiskStats, isWaterColor, DEFAULT_TSUNAMI_CONFIG } from './risk';
 import { NodeRasterReader, BrowserRasterReader, createTileProvider } from './raster';
 import { TileCache } from './cache';
 import type { AnalyzeRiskOptions, AnalyzeRiskResult, GridPoint } from './types';
@@ -9,7 +9,14 @@ export async function analyzeRiskInPolygon(
   options: AnalyzeRiskOptions,
   cache?: TileCache
 ): Promise<AnalyzeRiskResult> {
-  const { polygon, hazardTileUrl, baseTileUrl, gridSize, zoom } = options;
+  const {
+    polygon,
+    hazardTileUrl,
+    baseTileUrl,
+    gridSize,
+    zoom,
+    hazardConfig = DEFAULT_TSUNAMI_CONFIG
+  } = options;
 
   // Tạo tile providers từ URL templates
   const hazardTileProvider = createTileProvider(hazardTileUrl, cache);
@@ -19,15 +26,16 @@ export async function analyzeRiskInPolygon(
   const grid = createGrid(polygon, gridSize, zoom);
 
   // Bước 2: Đọc pixel từ hazard tile và base tile
-  await processGridPixels(grid, hazardTileProvider, baseTileProvider, cache);
+  await processGridPixels(grid, hazardTileProvider, baseTileProvider, cache, hazardConfig);
 
   // Bước 3: Tính thống kê
-  const stats = calculateRiskStats(grid);
+  const stats = calculateRiskStats(grid, hazardConfig);
 
   return {
     stats,
     total: grid.length,
-    grid
+    grid,
+    hazardConfig
   };
 }
 
@@ -36,7 +44,8 @@ async function processGridPixels(
   grid: GridPoint[],
   hazardTileProvider: (z: number, x: number, y: number) => Promise<any>,
   baseTileProvider: (z: number, x: number, y: number) => Promise<any>,
-  cache?: TileCache
+  cache?: TileCache,
+  hazardConfig = DEFAULT_TSUNAMI_CONFIG
 ) {
   // Tạo raster reader (tự động detect Node.js hay browser)
   const isNode = typeof window === 'undefined';
@@ -52,12 +61,11 @@ async function processGridPixels(
     try {
       // Đọc pixel từ hazard tile
       const hazardRGB = await hazardReader.getPixelRGB(point.tile, point.pixel);
-      point.riskLevel = classifyRiskFromRGB(hazardRGB.r, hazardRGB.g, hazardRGB.b);
+      point.riskLevel = classifyRiskFromRGB(hazardRGB.r, hazardRGB.g, hazardRGB.b, hazardConfig);
 
       // Đọc pixel từ base tile để kiểm tra nước
       const baseRGB = await baseReader.getPixelRGB(point.tile, point.pixel);
-      // Đơn giản: nếu màu xanh dương thì coi là nước
-      point.isWater = baseRGB.b > 200 && baseRGB.r < 100 && baseRGB.g < 100;
+      point.isWater = isWaterColor(baseRGB.r, baseRGB.g, baseRGB.b, hazardConfig);
     } catch (error) {
       console.warn(`Error processing point at ${point.lat}, ${point.lon}:`, error);
       // Mặc định không rủi ro nếu lỗi
@@ -74,8 +82,11 @@ export type {
   GridPoint,
   AnalyzeRiskOptions,
   AnalyzeRiskResult,
-  GeoJSONPolygon
+  GeoJSONPolygon,
+  HazardConfig,
+  RiskLevelConfig
 } from './types';
 
 export { NodeRasterReader, BrowserRasterReader, createTileProvider } from './raster';
 export { TileCache } from './cache';
+export { DEFAULT_TSUNAMI_CONFIG, createHazardConfig } from './risk';
