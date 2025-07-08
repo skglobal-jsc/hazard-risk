@@ -51,9 +51,10 @@ export async function fetchTile(url: string, cache?: TileCache): Promise<Buffer>
 
     return buffer;
   } catch (error: any) {
-    // Không cache lỗi
+    // Xử lý riêng trường hợp 404 (tile không tồn tại)
     if (error.response?.status === 404) {
-      throw new Error(`Tile not found: ${url}`);
+      console.warn(`Tile not found (404): ${url} - Treating as no risk`);
+      throw new Error(`TILE_NOT_FOUND: ${url}`);
     }
     throw new Error(`Failed to fetch tile ${url}: ${error.message}`);
   }
@@ -89,7 +90,7 @@ export class NodeRasterReader implements RasterReader {
       // Kiểm tra buffer có hợp lệ không
       if (!tileBuffer || tileBuffer.length === 0) {
         console.warn(`Empty tile buffer for tile ${tile.z}/${tile.x}/${tile.y}`);
-        return { r: 0, g: 0, b: 0 }; // Mặc định đen
+        return { r: 0, g: 0, b: 0 }; // Mặc định đen (không rủi ro)
       }
 
       // Dùng pngjs để đọc PNG
@@ -119,7 +120,13 @@ export class NodeRasterReader implements RasterReader {
           resolve({ r: 0, g: 0, b: 0 });
         }
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Xử lý riêng trường hợp tile không tồn tại
+      if (error.message?.includes('TILE_NOT_FOUND')) {
+        console.warn(`Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
+        return { r: 0, g: 0, b: 0 }; // Màu đen = không rủi ro
+      }
+
       console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
       // Fallback: trả về màu đen (không rủi ro)
       return { r: 0, g: 0, b: 0 };
@@ -132,22 +139,33 @@ export class BrowserRasterReader implements RasterReader {
   constructor(private tileProvider: (z: number, x: number, y: number) => Promise<ImageBitmap>) {}
 
   async getPixelRGB(tile: TileCoord, pixel: PixelCoord): Promise<{ r: number; g: number; b: number }> {
-    const tileImage = await this.tileProvider(tile.z, tile.x, tile.y);
+    try {
+      const tileImage = await this.tileProvider(tile.z, tile.x, tile.y);
 
-    // Tạo canvas để đọc pixel
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    canvas.width = 256;
-    canvas.height = 256;
+      // Tạo canvas để đọc pixel
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      canvas.width = 256;
+      canvas.height = 256;
 
-    ctx.drawImage(tileImage, 0, 0);
-    const imageData = ctx.getImageData(pixel.x, pixel.y, 1, 1);
-    const data = imageData.data;
+      ctx.drawImage(tileImage, 0, 0);
+      const imageData = ctx.getImageData(pixel.x, pixel.y, 1, 1);
+      const data = imageData.data;
 
-    return {
-      r: data[0],
-      g: data[1],
-      b: data[2]
-    };
+      return {
+        r: data[0],
+        g: data[1],
+        b: data[2]
+      };
+    } catch (error: any) {
+      // Xử lý lỗi tương tự Node.js
+      if (error.message?.includes('TILE_NOT_FOUND')) {
+        console.warn(`Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
+        return { r: 0, g: 0, b: 0 };
+      }
+
+      console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
+      return { r: 0, g: 0, b: 0 };
+    }
   }
 }

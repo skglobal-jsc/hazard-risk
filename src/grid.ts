@@ -1,5 +1,6 @@
-import { getBoundingBox, isPointInPolygon } from './polygon';
+import { getBoundingBox } from './polygon';
 import type { GeoJSONPolygon, GridPoint } from './types';
+import * as turf from '@turf/turf';
 
 // Tạo lưới điểm phủ bounding box
 export function createGrid(
@@ -8,33 +9,27 @@ export function createGrid(
   zoom: number
 ): GridPoint[] {
   const bbox = getBoundingBox(polygon);
-  const [minLon, minLat, maxLon, maxLat] = bbox;
 
-  // Chuyển gridSize từ mét sang độ (xấp xỉ)
-  // 1 độ lat ≈ 111km, 1 độ lon ≈ 111km * cos(lat)
-  const avgLat = (minLat + maxLat) / 2;
-  const latStep = gridSize / 111000; // mét -> độ
-  const lonStep = gridSize / (111000 * Math.cos(avgLat * Math.PI / 180));
+  // Dùng turf.pointGrid với mask để tạo lưới điểm trong polygon
+  const pointGrid = turf.pointGrid(bbox, gridSize, {
+    units: 'meters',
+    mask: turf.feature(polygon)
+  });
 
+  // Chuyển turf points sang GridPoint[]
   const grid: GridPoint[] = [];
+  for (const feature of pointGrid.features) {
+    const [lon, lat] = feature.geometry.coordinates;
+    const tile = latLonToTile(lat, lon, zoom);
+    const pixel = latLonToPixel(lat, lon, zoom);
 
-  // Tạo lưới điểm
-  for (let lat = minLat; lat <= maxLat; lat += latStep) {
-    for (let lon = minLon; lon <= maxLon; lon += lonStep) {
-      // Kiểm tra điểm có nằm trong polygon không
-      if (isPointInPolygon(lat, lon, polygon)) {
-        const tile = latLonToTile(lat, lon, zoom);
-        const pixel = latLonToPixel(lat, lon, zoom);
-
-        grid.push({
-          lat,
-          lon,
-          tile,
-          pixel,
-          isWater: false // Khởi tạo mặc định
-        });
-      }
-    }
+    grid.push({
+      lat,
+      lon,
+      tile,
+      pixel,
+      isWater: false // Khởi tạo mặc định
+    });
   }
 
   return grid;

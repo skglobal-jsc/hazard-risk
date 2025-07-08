@@ -25,10 +25,16 @@ export async function analyzeRiskInPolygon(
   // Bước 1: Tạo lưới điểm trong polygon
   const grid = createGrid(polygon, gridSize, zoom);
 
-  // Bước 2: Đọc pixel từ hazard tile và base tile
+  // Bước 2: Preload tiles vào cache (nếu có cache)
+  if (cache) {
+    const tileCoords = [...new Set(grid.map(point => point.tile))];
+    await cache.preloadTiles([hazardTileUrl, baseTileUrl], zoom, tileCoords);
+  }
+
+  // Bước 3: Đọc pixel từ hazard tile và base tile
   await processGridPixels(grid, hazardTileProvider, baseTileProvider, cache, hazardConfig);
 
-  // Bước 3: Tính thống kê
+  // Bước 4: Tính thống kê
   const stats = calculateRiskStats(grid, hazardConfig);
 
   return {
@@ -56,6 +62,8 @@ async function processGridPixels(
     ? new NodeRasterReader(baseTileProvider, cache)
     : new BrowserRasterReader(baseTileProvider);
 
+  console.log(`🔍 Processing ${grid.length} grid points...`);
+
   // Xử lý từng điểm
   for (const point of grid) {
     try {
@@ -66,13 +74,23 @@ async function processGridPixels(
       // Đọc pixel từ base tile để kiểm tra nước
       const baseRGB = await baseReader.getPixelRGB(point.tile, point.pixel);
       point.isWater = isWaterColor(baseRGB.r, baseRGB.g, baseRGB.b, hazardConfig);
-    } catch (error) {
-      console.warn(`Error processing point at ${point.lat}, ${point.lon}:`, error);
-      // Mặc định không rủi ro nếu lỗi
-      point.riskLevel = 0;
-      point.isWater = false;
+    } catch (error: any) {
+      // Phân biệt các loại lỗi
+      if (error.message?.includes('TILE_NOT_FOUND')) {
+        // Tile không tồn tại = không có dữ liệu rủi ro
+        console.warn(`No hazard data for point at ${point.lat}, ${point.lon} - Treating as no risk`);
+        point.riskLevel = 0; // Không rủi ro
+        point.isWater = false;
+      } else {
+        // Lỗi khác (network, parsing, etc.)
+        console.warn(`Error processing point at ${point.lat}, ${point.lon}:`, error);
+        point.riskLevel = 0; // Mặc định không rủi ro
+        point.isWater = false;
+      }
     }
   }
+
+  console.log(`✅ Processing completed. Cache stats:`, cache?.getStats());
 }
 
 // Export các type và function cần thiết

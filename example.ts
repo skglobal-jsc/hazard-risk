@@ -1,13 +1,16 @@
-import { analyzeRiskInPolygon } from './src';
+import { analyzeRiskInPolygon, TileCache } from './src';
 import * as turf from '@turf/turf';
 
 async function main() {
   console.log('🚀 Bắt đầu phân tích rủi ro...\n');
 
-  // Tạo polygon hình tròn bán kính 100m quanh vị trí
-  const center = turf.point([139.659200906754, 35.191539000170]);
+  // Tạo polygon hình tròn bán kính 1000m quanh vị trí
+  const center = turf.point([141.3543113869357, 43.06194898993809]);
   const radius = 0.1; // 100m
   const polygon = turf.circle(center, radius, { units: 'kilometers' });
+
+  // Tạo cache với preload
+  const tileCache = new TileCache(100 * 1024 * 1024, 5 * 60 * 1000); // 100MB, 5 phút
 
   // Hazard config với hỗ trợ cả RGB và hex color
   const hazardConfig = {
@@ -52,16 +55,20 @@ async function main() {
   }
   console.log(`   Màu nước: ${hazardConfig.waterColors?.join(', ')}\n`);
 
+  console.log('💾 Cache Config:');
+  console.log(`   Max size: ${tileCache.getStats().maxSize / (1024 * 1024)}MB`);
+  console.log(`   TTL: 5 phút\n`);
+
   try {
-    // Phân tích rủi ro
+    // Phân tích rủi ro với cache
     const result = await analyzeRiskInPolygon({
       polygon: polygon.geometry,
-      hazardTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', // Base tile (OSM)
-      baseTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', // Hazard tile (OSM cho demo)
-      gridSize: 10, // 10 mét
-      zoom: 16,
+      hazardTileUrl: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png', // Hazard tile (GSI Japan)
+      baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', // Base tile (GSI Japan)
+      gridSize: 5, // 10 mét
+      zoom: 15,
       hazardConfig: hazardConfig
-    });
+    }, tileCache);
 
     console.log('📊 Kết quả phân tích:');
     console.log(`   Tổng điểm: ${result.total}`);

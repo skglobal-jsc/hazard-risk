@@ -1,3 +1,6 @@
+import type { TileCoord } from './types';
+import { fetchTile } from './raster';
+
 interface CacheEntry {
   data: Buffer;
   timestamp: number;
@@ -13,17 +16,17 @@ interface TileKey {
 
 // LRU Cache cho tile images
 export class TileCache {
-  private cache = new Map<string, CacheEntry>();
-  private maxSize: number; // bytes
-  private maxAge: number; // milliseconds
-  private currentSize = 0;
+  private cache = new Map<string, Buffer>();
+  private maxSize: number;
+  private ttl: number;
+  private timestamps = new Map<string, number>();
 
-  constructor(maxSize = 100 * 1024 * 1024, maxAge = 5 * 60 * 1000) { // 100MB, 5 phút
+  constructor(maxSize: number = 100 * 1024 * 1024, ttl: number = 5 * 60 * 1000) {
     this.maxSize = maxSize;
-    this.maxAge = maxAge;
+    this.ttl = ttl;
   }
 
-  // Tạo key cho tile
+  // Tạo key cho cache
   private createKey(z: number, x: number, y: number, url: string): string {
     return `${z}/${x}/${y}:${url}`;
   }
@@ -31,69 +34,107 @@ export class TileCache {
   // Lấy tile từ cache
   get(z: number, x: number, y: number, url: string): Buffer | null {
     const key = this.createKey(z, x, y, url);
-    const entry = this.cache.get(key);
+    const data = this.cache.get(key);
+    const timestamp = this.timestamps.get(key);
 
-    if (!entry) {
+    if (!data || !timestamp) {
       return null;
     }
 
     // Kiểm tra TTL
-    if (Date.now() - entry.timestamp > this.maxAge) {
+    if (Date.now() - timestamp > this.ttl) {
       this.cache.delete(key);
-      this.currentSize -= entry.size;
+      this.timestamps.delete(key);
       return null;
     }
 
-    // Move to end (LRU)
-    this.cache.delete(key);
-    this.cache.set(key, entry);
-
-    return entry.data;
+    return data;
   }
 
   // Lưu tile vào cache
   set(z: number, x: number, y: number, url: string, data: Buffer): void {
     const key = this.createKey(z, x, y, url);
-    const size = data.length;
-    const entry: CacheEntry = {
-      data,
-      timestamp: Date.now(),
-      size
-    };
 
-    // Nếu đã có, xóa entry cũ
-    const existing = this.cache.get(key);
-    if (existing) {
-      this.currentSize -= existing.size;
+    // Kiểm tra kích thước cache
+    if (this.cache.size > 0 && this.getCacheSize() + data.length > this.maxSize) {
+      this.evictOldest();
     }
 
-    // Kiểm tra và xóa entries cũ nếu cần
-    while (this.currentSize + size > this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      if (!firstKey) break;
-
-      const firstEntry = this.cache.get(firstKey)!;
-      this.cache.delete(firstKey);
-      this.currentSize -= firstEntry.size;
-    }
-
-    // Thêm entry mới
-    this.cache.set(key, entry);
-    this.currentSize += size;
+    this.cache.set(key, data);
+    this.timestamps.set(key, Date.now());
   }
 
-  // Xóa cache
-  clear(): void {
-    this.cache.clear();
-    this.currentSize = 0;
+  // Preload tiles vào cache
+  async preloadTiles(
+    tileUrls: string[],
+    zoom: number,
+    tileCoords: TileCoord[]
+  ): Promise<void> {
+    console.log(`🔄 Preloading ${tileCoords.length} tiles into cache...`);
+
+    const preloadPromises = tileCoords.map(async (coord) => {
+      for (const urlTemplate of tileUrls) {
+        const url = urlTemplate
+          .replace('{z}', coord.z.toString())
+          .replace('{x}', coord.x.toString())
+          .replace('{y}', coord.y.toString());
+
+        try {
+          const buffer = await fetchTile(url, this);
+          console.log(`✅ Preloaded tile: ${coord.z}/${coord.x}/${coord.y}`);
+        } catch (error: any) {
+          if (error.message?.includes('TILE_NOT_FOUND')) {
+            console.log(`⚠️  Tile not found (expected): ${coord.z}/${coord.x}/${coord.y}`);
+          } else {
+            console.warn(`❌ Failed to preload tile ${coord.z}/${coord.x}/${coord.y}:`, error.message);
+          }
+        }
+      }
+    });
+
+    await Promise.allSettled(preloadPromises);
+    console.log(`✅ Preload completed. Cache size: ${this.getCacheSize()} bytes`);
   }
 
   // Lấy thống kê cache
   getStats(): { size: number; count: number; maxSize: number } {
     return {
-      size: this.currentSize,
+      size: this.getCacheSize(),
       count: this.cache.size,
       maxSize: this.maxSize
     };
+  }
+
+  // Xóa cache cũ nhất
+  private evictOldest(): void {
+    let oldestKey: string | null = null;
+    let oldestTime = Date.now();
+
+    for (const [key, timestamp] of this.timestamps) {
+      if (timestamp < oldestTime) {
+        oldestTime = timestamp;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+      this.timestamps.delete(oldestKey);
+    }
+  }
+
+  // Tính kích thước cache hiện tại
+  private getCacheSize(): number {
+    let totalSize = 0;
+    for (const buffer of this.cache.values()) {
+      totalSize += buffer.length;
+    }
+    return totalSize;
+  }
+
+  // Xóa toàn bộ cache
+  clear(): void {
+    this.cache.clear();
+    this.timestamps.clear();
   }
 }
