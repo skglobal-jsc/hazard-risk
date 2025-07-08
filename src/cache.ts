@@ -28,7 +28,7 @@ export class TileCache {
 
   // Tạo key cho cache
   private createKey(z: number, x: number, y: number, url: string): string {
-    return `${z}/${x}/${y}:${url}`;
+    return `${z}/${x}/${y}|${url}`;
   }
 
   // Lấy tile từ cache
@@ -64,36 +64,67 @@ export class TileCache {
     this.timestamps.set(key, Date.now());
   }
 
-  // Preload tiles vào cache
+  // Preload tiles vào cache với deduplication
   async preloadTiles(
     tileUrls: string[],
     zoom: number,
     tileCoords: TileCoord[]
   ): Promise<void> {
-    console.log(`🔄 Preloading ${tileCoords.length} tiles into cache...`);
+    console.log(`🔄 Preloading tiles into cache...`);
 
-    const preloadPromises = tileCoords.map(async (coord) => {
+    // Tạo unique set của tất cả tile coordinates
+    const uniqueTiles = new Set<string>();
+    for (const coord of tileCoords) {
       for (const urlTemplate of tileUrls) {
         const url = urlTemplate
           .replace('{z}', coord.z.toString())
           .replace('{x}', coord.x.toString())
           .replace('{y}', coord.y.toString());
+        uniqueTiles.add(`${coord.z}/${coord.x}/${coord.y}|${url}`);
+      }
+    }
+
+    console.log(`📊 Found ${uniqueTiles.size} unique tiles to preload`);
+
+    // Preload với concurrency limit để tránh overwhelm server
+    const concurrencyLimit = 5;
+    const tiles = Array.from(uniqueTiles);
+    const results: PromiseSettledResult<{ success: boolean; tile: string; error?: string }>[] = [];
+
+    for (let i = 0; i < tiles.length; i += concurrencyLimit) {
+      const batch = tiles.slice(i, i + concurrencyLimit);
+      const batchPromises = batch.map(async (tileKey) => {
+        const [coordPart, url] = tileKey.split('|');
+        const [z, x, y] = coordPart.split('/').map(Number);
 
         try {
-          const buffer = await fetchTile(url, this);
-          console.log(`✅ Preloaded tile: ${coord.z}/${coord.x}/${coord.y}`);
+          const buffer = await fetchTile(url, this, { z, x, y });
+          console.log(`✅ Preloaded: ${z}/${x}/${y}`);
+          return { success: true, tile: tileKey };
         } catch (error: any) {
           if (error.message?.includes('TILE_NOT_FOUND')) {
-            console.log(`⚠️  Tile not found (expected): ${coord.z}/${coord.x}/${coord.y}`);
+            console.log(`⚠️  Not found: ${z}/${x}/${y}`);
           } else {
-            console.warn(`❌ Failed to preload tile ${coord.z}/${coord.x}/${coord.y}:`, error.message);
+            console.warn(`❌ Failed: ${z}/${x}/${y} - ${error.message}`);
           }
+          return { success: false, tile: tileKey, error: error.message };
         }
-      }
-    });
+      });
 
-    await Promise.allSettled(preloadPromises);
-    console.log(`✅ Preload completed. Cache size: ${this.getCacheSize()} bytes`);
+      const batchResults = await Promise.allSettled(batchPromises);
+      results.push(...batchResults);
+
+      // Delay giữa các batch để tránh rate limit
+      if (i + concurrencyLimit < tiles.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failCount = results.length - successCount;
+
+    console.log(`✅ Preload completed: ${successCount} success, ${failCount} failed`);
+    console.log(`💾 Cache size: ${this.getCacheSize()} bytes`);
   }
 
   // Lấy thống kê cache

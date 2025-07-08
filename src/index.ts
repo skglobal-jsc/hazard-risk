@@ -53,14 +53,17 @@ async function processGridPixels(
   cache?: TileCache,
   hazardConfig = DEFAULT_TSUNAMI_CONFIG
 ) {
+  // Lấy màu level 0 từ config
+  const level0Color = hazardConfig.levels[0].color;
+
   // Tạo raster reader (tự động detect Node.js hay browser)
   const isNode = typeof window === 'undefined';
   const hazardReader = isNode
-    ? new NodeRasterReader(hazardTileProvider, cache)
-    : new BrowserRasterReader(hazardTileProvider);
+    ? new NodeRasterReader(hazardTileProvider, level0Color)
+    : new BrowserRasterReader(hazardTileProvider, level0Color);
   const baseReader = isNode
-    ? new NodeRasterReader(baseTileProvider, cache)
-    : new BrowserRasterReader(baseTileProvider);
+    ? new NodeRasterReader(baseTileProvider, level0Color)
+    : new BrowserRasterReader(baseTileProvider, level0Color);
 
   console.log(`🔍 Processing ${grid.length} grid points...`);
 

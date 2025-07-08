@@ -2,6 +2,7 @@ import type { TileCoord, PixelCoord } from './types';
 import { TileCache } from './cache';
 import axios from 'axios';
 import { PNG } from 'pngjs';
+import { normalizeColor } from './risk';
 
 // Interface chung cho việc đọc pixel
 export interface RasterReader {
@@ -9,13 +10,13 @@ export interface RasterReader {
 }
 
 // Fetch tile từ URL với axios
-export async function fetchTile(url: string, cache?: TileCache): Promise<Buffer> {
-  // Tạo key cho cache (đơn giản dùng URL)
-  const cacheKey = { z: 0, x: 0, y: 0, url }; // Sẽ được override bởi caller
+export async function fetchTile(url: string, cache?: TileCache, coords?: { z: number; x: number; y: number }): Promise<Buffer> {
+  // Tạo key cho cache
+  const cacheKey = coords || { z: 0, x: 0, y: 0 };
 
   // Kiểm tra cache trước
   if (cache) {
-    const cached = cache.get(cacheKey.z, cacheKey.x, cacheKey.y, cacheKey.url);
+    const cached = cache.get(cacheKey.z, cacheKey.x, cacheKey.y, url);
     if (cached) {
       return cached;
     }
@@ -25,9 +26,11 @@ export async function fetchTile(url: string, cache?: TileCache): Promise<Buffer>
   try {
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
-      timeout: 10000, // 10 giây timeout
+      timeout: 30000, // Tăng timeout lên 30 giây cho GSI Japan
       headers: {
-        'User-Agent': 'HazardRisk/1.0'
+        'User-Agent': 'HazardRisk/1.0',
+        'Accept': 'image/png,image/*,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate'
       }
     });
 
@@ -46,7 +49,7 @@ export async function fetchTile(url: string, cache?: TileCache): Promise<Buffer>
 
     // Lưu vào cache chỉ khi thành công
     if (cache) {
-      cache.set(cacheKey.z, cacheKey.x, cacheKey.y, cacheKey.url, buffer);
+      cache.set(cacheKey.z, cacheKey.x, cacheKey.y, url, buffer);
     }
 
     return buffer;
@@ -56,6 +59,13 @@ export async function fetchTile(url: string, cache?: TileCache): Promise<Buffer>
       console.warn(`Tile not found (404): ${url} - Treating as no risk`);
       throw new Error(`TILE_NOT_FOUND: ${url}`);
     }
+
+    // Xử lý timeout
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      console.warn(`Timeout fetching tile: ${url}`);
+      throw new Error(`TIMEOUT: ${url}`);
+    }
+
     throw new Error(`Failed to fetch tile ${url}: ${error.message}`);
   }
 }
@@ -68,19 +78,19 @@ export function createTileProvider(urlTemplate: string, cache?: TileCache) {
       .replace('{x}', x.toString())
       .replace('{y}', y.toString());
 
-    return await fetchTile(url, cache);
+    return await fetchTile(url, cache, { z, x, y });
   };
 }
 
 // Implementation cho Node.js (dùng pngjs)
 export class NodeRasterReader implements RasterReader {
-  private cache?: TileCache;
+  private level0Color: { r: number; g: number; b: number };
 
   constructor(
     private tileProvider: (z: number, x: number, y: number) => Promise<Buffer>,
-    cache?: TileCache
+    level0Color: string = '0,0,0'
   ) {
-    this.cache = cache;
+    this.level0Color = normalizeColor(level0Color);
   }
 
   async getPixelRGB(tile: TileCoord, pixel: PixelCoord): Promise<{ r: number; g: number; b: number }> {
@@ -90,7 +100,7 @@ export class NodeRasterReader implements RasterReader {
       // Kiểm tra buffer có hợp lệ không
       if (!tileBuffer || tileBuffer.length === 0) {
         console.warn(`Empty tile buffer for tile ${tile.z}/${tile.x}/${tile.y}`);
-        return { r: 0, g: 0, b: 0 }; // Mặc định đen (không rủi ro)
+        return this.level0Color; // Trả về màu level 0 thay vì đen
       }
 
       // Dùng pngjs để đọc PNG
@@ -102,7 +112,7 @@ export class NodeRasterReader implements RasterReader {
           // Kiểm tra pixel coordinates có hợp lệ không
           if (pixel.x < 0 || pixel.x >= width || pixel.y < 0 || pixel.y >= height) {
             console.warn(`Invalid pixel coordinates: ${pixel.x}, ${pixel.y} for tile ${width}x${height}`);
-            resolve({ r: 0, g: 0, b: 0 });
+            resolve(this.level0Color); // Trả về màu level 0
             return;
           }
 
@@ -116,27 +126,34 @@ export class NodeRasterReader implements RasterReader {
           });
         } catch (error) {
           console.warn(`pngjs error for tile ${tile.z}/${tile.x}/${tile.y}:`, error);
-          // Fallback: trả về màu đen (không rủi ro)
-          resolve({ r: 0, g: 0, b: 0 });
+          // Fallback: trả về màu level 0
+          resolve(this.level0Color);
         }
       });
     } catch (error: any) {
       // Xử lý riêng trường hợp tile không tồn tại
       if (error.message?.includes('TILE_NOT_FOUND')) {
         console.warn(`Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
-        return { r: 0, g: 0, b: 0 }; // Màu đen = không rủi ro
+        return this.level0Color; // Trả về màu level 0 thay vì đen
       }
 
       console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
-      // Fallback: trả về màu đen (không rủi ro)
-      return { r: 0, g: 0, b: 0 };
+      // Fallback: trả về màu level 0
+      return this.level0Color;
     }
   }
 }
 
 // Implementation cho Browser (dùng canvas)
 export class BrowserRasterReader implements RasterReader {
-  constructor(private tileProvider: (z: number, x: number, y: number) => Promise<ImageBitmap>) {}
+  private level0Color: { r: number; g: number; b: number };
+
+  constructor(
+    private tileProvider: (z: number, x: number, y: number) => Promise<ImageBitmap>,
+    level0Color: string = '0,0,0'
+  ) {
+    this.level0Color = normalizeColor(level0Color);
+  }
 
   async getPixelRGB(tile: TileCoord, pixel: PixelCoord): Promise<{ r: number; g: number; b: number }> {
     try {
@@ -161,11 +178,11 @@ export class BrowserRasterReader implements RasterReader {
       // Xử lý lỗi tương tự Node.js
       if (error.message?.includes('TILE_NOT_FOUND')) {
         console.warn(`Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
-        return { r: 0, g: 0, b: 0 };
+        return this.level0Color; // Trả về màu level 0 thay vì đen
       }
 
       console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
-      return { r: 0, g: 0, b: 0 };
+      return this.level0Color; // Trả về màu level 0 thay vì đen
     }
   }
 }

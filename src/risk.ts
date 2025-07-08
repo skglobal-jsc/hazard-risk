@@ -57,7 +57,7 @@ function parseRgbString(rgbString: string): { r: number; g: number; b: number } 
 }
 
 // Chuẩn hóa color về RGB object
-function normalizeColor(color: string): { r: number; g: number; b: number } {
+export function normalizeColor(color: string): { r: number; g: number; b: number } {
   if (color.startsWith('#')) {
     return hexToRgb(color);
   } else {
@@ -94,7 +94,7 @@ export function classifyRiskFromRGB(
     return colorMapping[colorKey];
   }
 
-  // Mặc định level 0 (không rủi ro)
+  // Mặc định level 0 (không rủi ro) cho các màu không xác định
   return 0;
 }
 
