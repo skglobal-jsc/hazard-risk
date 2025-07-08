@@ -24,7 +24,7 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "dev": "ts-node dev.ts",
+    "dev": "ts-node example.ts",
     "build:types": "tsc --emitDeclarationOnly",
     "build": "npm run build:types && microbundle --define PKG_VERSION=$npm_package_version",
     "watch": "microbundle watch --define PKG_VERSION=$npm_package_version",
@@ -37,7 +37,7 @@
     "format": "prettier src test --write",
     "prepack": "npm run clean && npm run build",
     "publish": "npm run prepack && npm publish --ignore-scripts",
-    "release": "npx np"
+    "release": "npx np --ignore-scripts"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -60,5 +60,10 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/skglobal-jsc/hazard-risk.git"
+  },
+  "dependencies": {
+    "@turf/turf": "^7.2.0",
+    "axios": "^1.10.0",
+    "pngjs": "^7.0.0"
   }
 }
