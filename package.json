@@ -1,6 +1,6 @@
 {
   "name": "@sk-global/hazard-risk",
-  "version": "0.0.8",
+  "version": "0.0.11",
   "description": "A TypeScript library for analyzing hazard risks and calculating risk assessments",
   "keywords": [
     "hazard",
@@ -36,7 +36,7 @@
     "lint": "prettier src test -c",
     "format": "prettier src test --write",
     "prepack": "npm run clean && npm run build",
-    "publish": "npm publish",
+    "publish": "npm run prepack && npm publish --ignore-scripts",
     "release": "npx np"
   },
   "devDependencies": {
