@@ -121,78 +121,42 @@ async function calculateStatsAndOptionallyNearestPoints(
         };
       }
     }
-    return { stats, nearestPoints, waterCount, currentLocationRisk };
+    return { stats, nearestPoints, waterCount, currentLocationRisk, hazardConfig } as any;
   } else {
-    return { stats, waterCount, currentLocationRisk };
+    return { stats, waterCount, currentLocationRisk, hazardConfig } as any;
   }
 }
 
-// Hàm chính
-export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: TileCache): Promise<any> {
+// Hàm chính chung cho cả Node.js và Browser
+async function analyzeRiskInPolygonCore(
+  options: AnalyzeRiskOptions,
+  hazardTileProvider: (z: number, x: number, y: number) => Promise<any>,
+  baseTileProvider: (z: number, x: number, y: number) => Promise<any>,
+  rasterReader: any,
+  cache?: TileCache
+): Promise<any> {
   const {
     polygon,
-    hazardTileUrl,
-    baseTileUrl,
     gridSize,
     zoom,
     hazardConfig = DEFAULT_TSUNAMI_CONFIG,
     currentLocation
   } = options;
-
-  // Chỉ dùng createNodeTileProvider cho Node.js
-  let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
-  let baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
-  if (typeof window === 'undefined') {
-    hazardTileProvider = createNodeTileProvider(hazardTileUrl, cache);
-    baseTileProvider = createNodeTileProvider(baseTileUrl, cache);
-  } else {
-    // Nếu muốn hỗ trợ browser, sẽ dùng provider khác ở bước sau
-    throw new Error('Browser environment not supported in this Node.js pipeline');
-  }
 
   const grid = createGrid(polygon, gridSize, zoom);
   const tileCoords = [...new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`))]
     .map(key => { const [z, x, y] = key.split('/').map(Number); return { z, x, y }; });
-  await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
 
-  const rasterReader = new NodeRasterReader(hazardTileProvider);
-
-  // Pipeline xử lý tiếp theo vẫn dùng hazardTileProvider, baseTileProvider (đều là Buffer)
-  const result = await calculateStatsAndOptionallyNearestPoints(
-    grid,
-    hazardTileProvider,
-    baseTileProvider,
-    hazardConfig,
-    currentLocation
-  );
-  return { ...result, hazardConfig };
-}
-
-// Hàm wrapper cho browser (tương tự analyzeRiskInPolygon cho Node.js)
-export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): Promise<any> {
-  const {
-    polygon,
-    hazardTileUrl,
-    baseTileUrl,
-    gridSize,
-    zoom,
-    hazardConfig = DEFAULT_TSUNAMI_CONFIG,
-    currentLocation
-  } = options;
-
-  // Dùng createBrowserTileProvider cho browser
-  const hazardTileProvider = createBrowserTileProvider(hazardTileUrl);
-  const baseTileProvider = createBrowserTileProvider(baseTileUrl);
-
-  const grid = createGrid(polygon, gridSize, zoom);
+  // Preload tiles (chỉ cho Node.js, browser tự handle)
+  if (typeof window === 'undefined') {
+    await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
+  }
 
   // Xử lý từng điểm trong grid
   const riskLevels: number[] = [];
   const waterPoints: GridPoint[] = [];
   let nearestPoint: GridPoint | null = null;
   let minDistance = Infinity;
-
-  const rasterReader = new BrowserRasterReader(hazardTileProvider, baseTileProvider);
 
   for (const point of grid) {
     try {
@@ -243,6 +207,59 @@ export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): 
       distance: minDistance
     } : null
   };
+}
+
+// Wrapper cho Node.js
+export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: TileCache): Promise<any> {
+  const {
+    hazardTileUrl,
+    baseTileUrl
+  } = options;
+
+  // Chỉ dùng createNodeTileProvider cho Node.js
+  let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
+  let baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
+  if (typeof window === 'undefined') {
+    hazardTileProvider = createNodeTileProvider(hazardTileUrl, cache);
+    baseTileProvider = createNodeTileProvider(baseTileUrl, cache);
+  } else {
+    throw new Error('Browser environment not supported in this Node.js pipeline');
+  }
+
+  const grid = createGrid(options.polygon, options.gridSize, options.zoom);
+  const tileCoords = [...new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`))]
+    .map(key => { const [z, x, y] = key.split('/').map(Number); return { z, x, y }; });
+  await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
+
+  // Sử dụng logic cũ để tương thích với example.ts
+  return await calculateStatsAndOptionallyNearestPoints(
+    grid,
+    hazardTileProvider,
+    baseTileProvider,
+    options.hazardConfig,
+    options.currentLocation
+  );
+}
+
+// Wrapper cho Browser
+export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): Promise<any> {
+  const {
+    hazardTileUrl,
+    baseTileUrl
+  } = options;
+
+  // Dùng createBrowserTileProvider cho browser
+  const hazardTileProvider = createBrowserTileProvider(hazardTileUrl);
+  const baseTileProvider = createBrowserTileProvider(baseTileUrl);
+
+  const rasterReader = new BrowserRasterReader(hazardTileProvider, baseTileProvider);
+
+  return await analyzeRiskInPolygonCore(
+    options,
+    hazardTileProvider,
+    baseTileProvider,
+    rasterReader
+  );
 }
 
 // Export các type và function cần thiết
