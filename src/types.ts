@@ -1,30 +1,30 @@
-// Risk level có thể là bất kỳ số nào
+// Risk level can be any number
 export type RiskLevel = number;
 
-// Cấu hình cho một level rủi ro
+// Configuration for a risk level
 export interface RiskLevelConfig {
   name: string;
-  color: string; // Format: "r,g,b" hoặc "#rrggbb"
+  color: string; // Format: "r,g,b" or "#rrggbb"
   description: string;
 }
 
-// Cấu hình cho một loại hazard
+// Configuration for a hazard type
 export interface HazardConfig {
   name: string;
   levels: {
     [level: number]: RiskLevelConfig;
   };
-  waterColors?: string[]; // Array các màu nước đã xác định sẵn (format: "#rrggbb")
+  waterColors?: string[]; // Array of predefined water colors (format: "#rrggbb")
 }
 
-// Thống kê kết quả rủi ro
+// Risk analysis result statistics
 export interface RiskStat {
   level: RiskLevel | 'water';
   count: number;
-  ratio: number; // phần trăm
+  ratio: number; // percentage
 }
 
-// Một điểm trong lưới
+// A point in the grid
 export interface GridPoint {
   lat: number;
   lon: number;
@@ -34,39 +34,39 @@ export interface GridPoint {
   isWater: boolean;
 }
 
-// Tùy chọn phân tích (đơn giản hóa)
+// Analysis options (simplified)
 export interface AnalyzeRiskOptions {
   polygon: GeoJSONPolygon;
-  hazardTileUrl: string; // URL template cho hazard tile
-  baseTileUrl: string;   // URL template cho base tile
-  gridSize: number; // mét
+  hazardTileUrl: string; // URL template for hazard tile
+  baseTileUrl: string;   // URL template for base tile
+  gridSize: number; // meters
   zoom: number;
-  hazardConfig?: HazardConfig; // Cấu hình hazard
+  hazardConfig?: HazardConfig; // Hazard configuration
   currentLocation?: { lat: number; lon: number };
 }
 
-// Kết quả phân tích
+// Analysis result
 export interface AnalyzeRiskResult {
   grid: GridPoint[];
   stats: RiskStat[];
   total: number;
-  hazardConfig?: HazardConfig; // Thêm config vào kết quả
+  hazardConfig?: HazardConfig; // Add config to result
 }
 
-// Polygon dạng GeoJSON
+// GeoJSON polygon
 export type GeoJSONPolygon = {
   type: 'Polygon';
   coordinates: number[][][];
 };
 
-// Tọa độ tile XYZ
+// XYZ tile coordinates
 export interface TileCoord {
   z: number;
   x: number;
   y: number;
 }
 
-// Tọa độ pixel trong tile
+// Pixel coordinates in tile
 export interface PixelCoord {
   x: number;
   y: number;

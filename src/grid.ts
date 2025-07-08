@@ -2,21 +2,21 @@ import { getBoundingBox } from './polygon';
 import type { GeoJSONPolygon, GridPoint } from './types';
 import * as turf from '@turf/turf';
 
-// Tạo lưới điểm phủ bounding box
+// Create point grid covering bounding box
 export function createGrid(
   polygon: GeoJSONPolygon,
-  gridSize: number, // mét
+  gridSize: number, // meters
   zoom: number
 ): GridPoint[] {
   const bbox = getBoundingBox(polygon);
 
-  // Dùng turf.pointGrid với mask để tạo lưới điểm trong polygon
+  // Use turf.pointGrid with mask to create point grid inside polygon
   const pointGrid = turf.pointGrid(bbox, gridSize, {
     units: 'meters',
     mask: turf.feature(polygon)
   });
 
-  // Chuyển turf points sang GridPoint[]
+  // Convert turf points to GridPoint[]
   const grid: GridPoint[] = [];
   for (const feature of pointGrid.features) {
     const [lon, lat] = feature.geometry.coordinates;
@@ -28,14 +28,14 @@ export function createGrid(
       lon,
       tile,
       pixel,
-      isWater: false // Khởi tạo mặc định
+      isWater: false // Default initialization
     });
   }
 
   return grid;
 }
 
-// Chuyển lat/lon sang tile XYZ
+// Convert lat/lon to XYZ tile
 function latLonToTile(lat: number, lon: number, zoom: number) {
   const n = Math.pow(2, zoom);
   const xtile = Math.floor((lon + 180) / 360 * n);
@@ -44,7 +44,7 @@ function latLonToTile(lat: number, lon: number, zoom: number) {
   return { z: zoom, x: xtile, y: ytile };
 }
 
-// Chuyển lat/lon sang pixel trong tile
+// Convert lat/lon to pixel in tile
 function latLonToPixel(lat: number, lon: number, zoom: number) {
   const n = Math.pow(2, zoom);
   const x = ((lon + 180) / 360 * n) * 256;

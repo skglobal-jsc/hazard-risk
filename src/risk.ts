@@ -1,40 +1,40 @@
 import type { RiskLevel, RiskStat, GridPoint, HazardConfig, RiskLevelConfig } from './types';
 
-// Hazard config mặc định cho tsunami (GSI Japan)
+// Default hazard config for tsunami (GSI Japan)
 const DEFAULT_TSUNAMI_CONFIG: HazardConfig = {
   name: 'Tsunami',
   levels: {
     0: {
       name: 'level0',
       color: '0,0,0',
-      description: 'Không rủi ro'
+      description: 'No risk'
     },
     1: {
       name: 'level1',
       color: '255,255,0',
-      description: 'Chú ý'
+      description: 'Attention'
     },
     2: {
       name: 'level2',
       color: '255,165,0',
-      description: 'Cảnh báo'
+      description: 'Warning'
     },
     3: {
       name: 'level3',
       color: '255,0,0',
-      description: 'Rất nguy hiểm'
+      description: 'Very dangerous'
     }
   },
-  // Array các màu nước đã xác định sẵn
+  // Array of predefined water colors
   waterColors: ['#bed2ff', '#a8c8ff', '#8bb8ff', '#6aa8ff']
 };
 
-// Chuyển đổi RGB sang hex format
+// Convert RGB to hex format
 function rgbToHex(r: number, g: number, b: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-// Chuyển đổi hex sang RGB
+// Convert hex to RGB
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) {
@@ -47,7 +47,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
-// Chuyển đổi RGB string sang RGB object
+// Convert RGB string to RGB object
 function parseRgbString(rgbString: string): { r: number; g: number; b: number } {
   const parts = rgbString.split(',').map(s => parseInt(s.trim()));
   if (parts.length !== 3) {
@@ -56,7 +56,7 @@ function parseRgbString(rgbString: string): { r: number; g: number; b: number } 
   return { r: parts[0], g: parts[1], b: parts[2] };
 }
 
-// Chuẩn hóa color về RGB object
+// Normalize color to RGB object
 export function normalizeColor(color: string): { r: number; g: number; b: number } {
   if (color.startsWith('#')) {
     return hexToRgb(color);
@@ -65,12 +65,12 @@ export function normalizeColor(color: string): { r: number; g: number; b: number
   }
 }
 
-// Tạo color mapping từ levels config
+// Create color mapping from levels config
 function createColorMapping(hazardConfig: HazardConfig): { [key: string]: RiskLevel } {
   const colorMapping: { [key: string]: RiskLevel } = {};
 
   for (const [level, config] of Object.entries(hazardConfig.levels)) {
-    // Chuẩn hóa color về RGB string để so sánh
+    // Normalize color to RGB string for comparison
     const rgb = normalizeColor(config.color);
     const rgbString = `${rgb.r},${rgb.g},${rgb.b}`;
     colorMapping[rgbString] = parseInt(level);
@@ -79,7 +79,7 @@ function createColorMapping(hazardConfig: HazardConfig): { [key: string]: RiskLe
   return colorMapping;
 }
 
-// Phân loại rủi ro từ màu RGB với hazard config
+// Classify risk from RGB color with hazard config
 export function classifyRiskFromRGB(
   r: number,
   g: number,
@@ -89,16 +89,16 @@ export function classifyRiskFromRGB(
   const colorKey = `${r},${g},${b}`;
   const colorMapping = createColorMapping(hazardConfig);
 
-  // Kiểm tra trong color mapping
+  // Check in color mapping
   if (colorMapping[colorKey] !== undefined) {
     return colorMapping[colorKey];
   }
 
-  // Mặc định level 0 (không rủi ro) cho các màu không xác định
+  // Default to level 0 (no risk) for undefined colors
   return 0;
 }
 
-// Kiểm tra màu nước với array màu nước đã xác định sẵn
+// Check water color with predefined water color array
 export function isWaterColor(
   r: number,
   g: number,
@@ -108,11 +108,11 @@ export function isWaterColor(
   const waterColors = hazardConfig.waterColors || ['#bed2ff'];
   const hexColor = rgbToHex(r, g, b);
 
-  // Kiểm tra xem màu có trong danh sách màu nước không
+  // Check if color is in water color list
   return waterColors.includes(hexColor);
 }
 
-// Tính thống kê kết quả với dynamic levels
+// Calculate result statistics with dynamic levels
 export function calculateRiskStats(grid: GridPoint[], hazardConfig?: HazardConfig): RiskStat[] {
   const stats: { [key: string]: number } = {
     'water': 0
@@ -120,7 +120,7 @@ export function calculateRiskStats(grid: GridPoint[], hazardConfig?: HazardConfi
 
   let total = 0;
 
-  // Đếm số điểm theo từng level
+  // Count points by level
   for (const point of grid) {
     if (point.isWater) {
       stats.water++;
@@ -131,7 +131,7 @@ export function calculateRiskStats(grid: GridPoint[], hazardConfig?: HazardConfi
     total++;
   }
 
-  // Chuyển thành array RiskStat
+  // Convert to RiskStat array
   const result: RiskStat[] = [];
   for (const [level, count] of Object.entries(stats)) {
     if (count > 0) {
@@ -143,7 +143,7 @@ export function calculateRiskStats(grid: GridPoint[], hazardConfig?: HazardConfi
     }
   }
 
-  // Sắp xếp theo level (water ở cuối)
+  // Sort by level (water at the end)
   result.sort((a, b) => {
     if (a.level === 'water') return 1;
     if (b.level === 'water') return -1;
@@ -153,7 +153,7 @@ export function calculateRiskStats(grid: GridPoint[], hazardConfig?: HazardConfi
   return result;
 }
 
-// Tạo hazard config cho các loại hazard khác nhau
+// Create hazard config for different hazard types
 export function createHazardConfig(
   name: string,
   levels: { [level: number]: RiskLevelConfig },
@@ -166,5 +166,5 @@ export function createHazardConfig(
   };
 }
 
-// Export configs mặc định
+// Export default configs
 export { DEFAULT_TSUNAMI_CONFIG };

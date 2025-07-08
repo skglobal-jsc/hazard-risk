@@ -8,7 +8,7 @@ import * as turf from '@turf/turf';
 import type { Feature, Point } from 'geojson';
 import { BrowserRasterReader, createBrowserTileProvider } from './raster';
 
-// Preload tất cả tile hazard và base song song
+// Preload all hazard and base tiles in parallel
 async function preloadTiles(tileCoords, hazardTileProvider, baseTileProvider) {
   await Promise.all([
     ...tileCoords.map(coord => hazardTileProvider(coord.z, coord.x, coord.y)),
@@ -16,7 +16,7 @@ async function preloadTiles(tileCoords, hazardTileProvider, baseTileProvider) {
   ]);
 }
 
-// Gom điểm theo tile
+// Group points by tile
 function groupPointsByTile(grid) {
   const tilePointMap = new Map();
   for (const point of grid) {
@@ -49,26 +49,26 @@ function getRiskInfoFromTile(
   return { riskLevel, isWater };
 }
 
-// Tính thống kê và optionally nearestPoints
+// Calculate statistics and optionally nearestPoints
 async function calculateStatsAndOptionallyNearestPoints(
   grid: GridPoint[],
   hazardTileProvider: { (z: number, x: number, y: number): Promise<Buffer>; (arg0: any, arg1: any, arg2: any): any; },
   baseTileProvider: { (z: number, x: number, y: number): Promise<Buffer>; (arg0: any, arg1: any, arg2: any): any; },
   hazardConfig: HazardConfig | undefined,
-  currentLocation: { lat: number; lon: number; } | undefined // có thể undefined
+  currentLocation: { lat: number; lon: number; } | undefined // can be undefined
 ): Promise<{ stats: { [level: string]: number, total: number }, nearestPoints?: any, waterCount: number, currentLocationRisk?: { riskLevel: number, isWater: boolean } }> {
   const stats: { [level: string]: number, total: number } = { total: 0 };
   let total = 0;
   let waterCount = 0;
   const tilePointMap = groupPointsByTile(grid);
   const hasNearest = !!currentLocation;
-  // Gom các điểm hợp lệ theo risk level
+  // Group valid points by risk level
   const levelPoints: { [level: string]: Feature<Point>[] } = {};
 
-  // Xác định risk tại currentLocation (nếu có)
+  // Determine risk at currentLocation (if exists)
   let currentLocationRisk: { riskLevel: number, isWater: boolean } | undefined = undefined;
   if (currentLocation) {
-    // Tìm tile và pixel chứa currentLocation
+    // Find tile and pixel containing currentLocation
     const samplePoint = grid.find(pt => Math.abs(pt.lat - currentLocation.lat) < 1e-6 && Math.abs(pt.lon - currentLocation.lon) < 1e-6);
     if (samplePoint) {
       const { z, x, y } = samplePoint.tile;
@@ -107,7 +107,7 @@ async function calculateStatsAndOptionallyNearestPoints(
     }
   }));
   stats.total = total;
-  // Tính nearestPoints bằng turf
+  // Calculate nearestPoints using turf
   let nearestPoints: { [level: string]: any } = {};
   if (hasNearest && currentLocation) {
     const from = turf.point([currentLocation.lon, currentLocation.lat]);
@@ -117,7 +117,7 @@ async function calculateStatsAndOptionallyNearestPoints(
         const nearest = turf.nearestPoint(from, fc, { units: 'meters' });
         nearestPoints[level] = {
           ...nearest.properties,
-          distance: nearest.properties?.distanceToPoint // đã là mét
+          distance: nearest.properties?.distanceToPoint // already in meters
         };
       }
     }
@@ -127,7 +127,7 @@ async function calculateStatsAndOptionallyNearestPoints(
   }
 }
 
-// Hàm chính chung cho cả Node.js và Browser
+// Main function common for both Node.js and Browser
 async function analyzeRiskInPolygonCore(
   options: AnalyzeRiskOptions,
   hazardTileProvider: (z: number, x: number, y: number) => Promise<any>,
@@ -147,12 +147,12 @@ async function analyzeRiskInPolygonCore(
   const tileCoords = [...new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`))]
     .map(key => { const [z, x, y] = key.split('/').map(Number); return { z, x, y }; });
 
-  // Preload tiles (chỉ cho Node.js, browser tự handle)
+  // Preload tiles (only for Node.js, browser handles itself)
   if (typeof window === 'undefined') {
     await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
   }
 
-  // Xử lý từng điểm trong grid
+  // Process each point in grid
   const riskLevels: number[] = [];
   const waterPoints: GridPoint[] = [];
   let nearestPoint: GridPoint | null = null;
@@ -171,7 +171,7 @@ async function analyzeRiskInPolygonCore(
         waterPoints.push(point);
       }
 
-      // Tìm điểm gần nhất nếu có currentLocation
+      // Find nearest point if currentLocation exists
       if (currentLocation) {
         const pointFeature = turf.point([point.lon, point.lat]);
         const currentPoint = turf.point([currentLocation.lon, currentLocation.lat]);
@@ -187,7 +187,7 @@ async function analyzeRiskInPolygonCore(
     }
   }
 
-  // Tạo GridPoint array với riskLevel đã tính
+  // Create GridPoint array with calculated riskLevel
   const gridWithRisk = grid.map((point, index) => ({
     ...point,
     riskLevel: riskLevels[index],
@@ -209,14 +209,14 @@ async function analyzeRiskInPolygonCore(
   };
 }
 
-// Wrapper cho Node.js
+// Wrapper for Node.js
 export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: TileCache): Promise<any> {
   const {
     hazardTileUrl,
     baseTileUrl
   } = options;
 
-  // Chỉ dùng createNodeTileProvider cho Node.js
+  // Only use createNodeTileProvider for Node.js
   let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
   let baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
   if (typeof window === 'undefined') {
@@ -231,7 +231,7 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
     .map(key => { const [z, x, y] = key.split('/').map(Number); return { z, x, y }; });
   await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
 
-  // Sử dụng logic cũ để tương thích với example.ts
+  // Use old logic to maintain compatibility with example.ts
   return await calculateStatsAndOptionallyNearestPoints(
     grid,
     hazardTileProvider,
@@ -241,14 +241,14 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
   );
 }
 
-// Wrapper cho Browser
+// Wrapper for Browser
 export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): Promise<any> {
   const {
     hazardTileUrl,
     baseTileUrl
   } = options;
 
-  // Dùng createBrowserTileProvider cho browser
+  // Use createBrowserTileProvider for browser
   const hazardTileProvider = createBrowserTileProvider(hazardTileUrl);
   const baseTileProvider = createBrowserTileProvider(baseTileUrl);
 
@@ -262,7 +262,7 @@ export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): 
   );
 }
 
-// Export các type và function cần thiết
+// Export necessary types and functions
 export type {
   RiskLevel,
   RiskStat,

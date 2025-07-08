@@ -111,6 +111,8 @@ async function main() {
         lon: center.geometry.coordinates[0]
       }
     }, tileCache);
+
+
     // Đo thời gian kết thúc
     const end = Date.now();
     console.log(`⏱️  Thời gian thực thi: ${(end - start) / 1000}s\n`);

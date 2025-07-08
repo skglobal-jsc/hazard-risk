@@ -14,7 +14,7 @@ interface TileKey {
   url: string;
 }
 
-// LRU Cache cho tile images
+// LRU Cache for tile images
 export class TileCache {
   private cache = new Map<string, Buffer>();
   private maxSize: number;
@@ -26,12 +26,12 @@ export class TileCache {
     this.ttl = ttl;
   }
 
-  // Tạo key cho cache
+  // Create key for cache
   private createKey(z: number, x: number, y: number, url: string): string {
     return `${z}/${x}/${y}|${url}`;
   }
 
-  // Lấy tile từ cache
+  // Get tile from cache
   get(z: number, x: number, y: number, url: string): Buffer | null {
     const key = this.createKey(z, x, y, url);
     const data = this.cache.get(key);
@@ -41,7 +41,7 @@ export class TileCache {
       return null;
     }
 
-    // Kiểm tra TTL
+    // Check TTL
     if (Date.now() - timestamp > this.ttl) {
       this.cache.delete(key);
       this.timestamps.delete(key);
@@ -51,11 +51,11 @@ export class TileCache {
     return data;
   }
 
-  // Lưu tile vào cache
+  // Save tile to cache
   set(z: number, x: number, y: number, url: string, data: Buffer): void {
     const key = this.createKey(z, x, y, url);
 
-    // Kiểm tra kích thước cache
+    // Check cache size
     if (this.cache.size > 0 && this.getCacheSize() + data.length > this.maxSize) {
       this.evictOldest();
     }
@@ -64,7 +64,7 @@ export class TileCache {
     this.timestamps.set(key, Date.now());
   }
 
-  // Preload tiles vào cache với deduplication
+  // Preload tiles into cache with deduplication
   async preloadTiles(
     tileUrls: string[],
     zoom: number,
@@ -72,7 +72,7 @@ export class TileCache {
   ): Promise<void> {
     console.log(`🔄 Preloading tiles into cache...`);
 
-    // Tạo unique set của tất cả tile coordinates
+    // Create unique set of all tile coordinates
     const uniqueTiles = new Set<string>();
     for (const coord of tileCoords) {
       for (const urlTemplate of tileUrls) {
@@ -86,7 +86,7 @@ export class TileCache {
 
     console.log(`📊 Found ${uniqueTiles.size} unique tiles to preload`);
 
-    // Preload với concurrency limit để tránh overwhelm server
+    // Preload with concurrency limit to avoid overwhelming server
     const concurrencyLimit = 5;
     const tiles = Array.from(uniqueTiles);
     const results: PromiseSettledResult<{ success: boolean; tile: string; error?: string }>[] = [];
@@ -114,7 +114,7 @@ export class TileCache {
       const batchResults = await Promise.allSettled(batchPromises);
       results.push(...batchResults);
 
-      // Delay giữa các batch để tránh rate limit
+      // Delay between batches to avoid rate limit
       if (i + concurrencyLimit < tiles.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -127,7 +127,7 @@ export class TileCache {
     console.log(`💾 Cache size: ${this.getCacheSize()} bytes`);
   }
 
-  // Lấy thống kê cache
+  // Get cache statistics
   getStats(): { size: number; count: number; maxSize: number } {
     return {
       size: this.getCacheSize(),
@@ -136,7 +136,7 @@ export class TileCache {
     };
   }
 
-  // Xóa cache cũ nhất
+  // Evict oldest cache entry
   private evictOldest(): void {
     let oldestKey: string | null = null;
     let oldestTime = Date.now();
@@ -154,7 +154,7 @@ export class TileCache {
     }
   }
 
-  // Tính kích thước cache hiện tại
+  // Calculate current cache size
   private getCacheSize(): number {
     let totalSize = 0;
     for (const buffer of this.cache.values()) {
@@ -163,7 +163,7 @@ export class TileCache {
     return totalSize;
   }
 
-  // Xóa toàn bộ cache
+  // Clear entire cache
   clear(): void {
     this.cache.clear();
     this.timestamps.clear();
