@@ -37,7 +37,8 @@
     "format": "prettier src test --write",
     "prepack": "npm run clean && npm run build",
     "prepare": "husky install",
-    "release": "npm run prepack && source .env && npx np"
+    "publish": "npm run prepack && npm publish",
+    "release": "npm run prepack && npx np"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
