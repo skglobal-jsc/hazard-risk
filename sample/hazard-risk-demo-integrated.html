@@ -148,6 +148,7 @@
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="../dist/index.umd.js"></script>
 <script>
 // --- Tab logic ---
 function showTab(tab) {
@@ -179,7 +180,7 @@ function initMap() {
         center: [35.6895, 139.6917], // Tokyo
         zoom: 12,
         minZoom: 2,
-        maxZoom: 20
+        maxZoom: 18
     });
     L.tileLayer(document.getElementById('baseUrl').value, {
         attribution: '&copy; OpenStreetMap contributors'
@@ -190,7 +191,7 @@ function initMap() {
         draw: {
             polygon: true,
             rectangle: true,
-            circle: true,
+            circle: false,
             marker: false,
             polyline: false,
             circlemarker: false
@@ -200,9 +201,16 @@ function initMap() {
     map.on(L.Draw.Event.CREATED, function (e) {
         drawnItems.addLayer(e.layer);
         syncGeoJsonText();
+        rebindAllRiskPopups();
     });
-    map.on(L.Draw.Event.EDITED, function (e) { syncGeoJsonText(); });
-    map.on(L.Draw.Event.DELETED, function (e) { syncGeoJsonText(); });
+    map.on(L.Draw.Event.EDITED, function (e) {
+        syncGeoJsonText();
+        rebindAllRiskPopups();
+    });
+    map.on(L.Draw.Event.DELETED, function (e) {
+        syncGeoJsonText();
+        rebindAllRiskPopups();
+    });
     updateHazardLayer();
 }
 
@@ -212,6 +220,59 @@ function syncGeoJsonText() {
     const geojson = drawnItems.toGeoJSON();
     document.getElementById('geojsonText').value = JSON.stringify(geojson, null, 2);
     ignoreGeoJsonChange = false;
+    rebindAllRiskPopups();
+}
+
+// Lắng nghe click vào từng layer để phân tích risk
+function bindRiskPopupToLayer(layer) {
+    layer.on('click', async function(e) {
+        // Lấy geojson của layer
+        const geojson = layer.toGeoJSON();
+        // Lấy config hiện tại
+        const hazardUrl = document.getElementById('hazardUrl').value;
+        const baseUrl = document.getElementById('baseUrl').value;
+        const gridSize = parseInt(document.getElementById('gridSize').value);
+        const zoom = parseInt(document.getElementById('zoom').value);
+        // Hiển thị popup loading
+        layer.bindPopup('Calculating risk...').openPopup(e.latlng || undefined);
+        try {
+            // Gọi hàm phân tích risk
+            console.log('geojson', geojson.geometry);
+            const result = await window.hazardRisk.analyzeRiskInPolygonBrowser({
+                polygon: geojson.geometry,
+                hazardTileUrl: hazardUrl,
+                baseTileUrl: baseUrl,
+                gridSize,
+                zoom,
+                currentLocation: null,
+                onProgress: null
+            });
+            // Hiển thị kết quả risk
+            let html = '<b>Risk Analysis</b><br/>';
+            html += `<b>Total Points:</b> ${result.stats.total}<br/>`;
+            html += `<b>Water Points:</b> ${result.waterCount}<br/>`;
+            html += '<b>Risk Distribution:</b><br/>';
+            Object.entries(result.stats).forEach(([level, count]) => {
+                if (level !== 'total' && count > 0) {
+                    const ratio = ((count / result.stats.total) * 100).toFixed(1);
+                    html += `Level ${level}: ${count} (${ratio}%)<br/>`;
+                }
+            });
+            layer.setPopupContent(html);
+        } catch (err) {
+            console.error(err);
+            layer.setPopupContent('Risk analysis failed!');
+        }
+    });
+}
+
+// Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
+function rebindAllRiskPopups() {
+    drawnItems.eachLayer(function(layer) {
+        if (layer instanceof L.Polygon || layer instanceof L.Rectangle || layer instanceof L.Circle) {
+            bindRiskPopupToLayer(layer);
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
