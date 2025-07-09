@@ -247,6 +247,10 @@
         </div>
         <div class="tab-content" id="tabConfig" style="display:none;">
             <form class="config-form" autocomplete="off" onsubmit="return false;">
+                <div class="form-group">
+                  <label for="baseUrl">Water Map Tile URL</label>
+                  <input readonly type="text" id="baseUrl" value="https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png">
+                </div>
                 <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                     <label for="hazardUrl" style="margin: 0; flex: 1;">Hazard Tile URL</label>
                     <label style="margin: 0; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
@@ -254,17 +258,14 @@
                     </label>
                 </div>
                 <input type="text" id="hazardUrl" value="https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png">
-                <div class="form-group">
-                    <label for="baseUrl">Base Map Tile URL</label>
-                    <input type="text" id="baseUrl" value="https://tile.openstreetmap.org/{z}/{x}/{y}.png">
-                </div>
+
                 <div class="form-group">
                     <label for="gridSize">Grid Size (meters)</label>
                     <input type="number" id="gridSize" value="100" min="10" max="1000">
                 </div>
                 <div class="form-group">
                     <label for="zoom">Zoom level</label>
-                    <input type="number" id="zoom" value="12" min="2" max="20">
+                    <input type="number" id="zoom" value="14" min="2" max="20">
                 </div>
             </form>
 
@@ -312,7 +313,7 @@ let isAnalyzing = false; // Prevent multiple API calls
 
 // --- Hazard Configuration ---
 let hazardConfig = {
-    name: "Tsunami Depth (GSI Japan)",
+    name: "Flood Depth (GSI Japan)",
     levels: {
         "0": { name: "level0", color: "#FFFFFF", description: "0m" },
         "1": { name: "level1", color: "#FFFFB3", description: "<0.3m" },
@@ -365,11 +366,13 @@ function renderWaterColors() {
 function updateLevel(level, field, value) {
     hazardConfig.levels[level][field] = value;
     renderRiskLevels();
+    saveConfigToLocalStorage();
 }
 
 function removeLevel(level) {
     delete hazardConfig.levels[level];
     renderRiskLevels();
+    saveConfigToLocalStorage();
 }
 
 function addRiskLevel() {
@@ -380,21 +383,25 @@ function addRiskLevel() {
         description: "New level"
     };
     renderRiskLevels();
+    saveConfigToLocalStorage();
 }
 
 function updateWaterColor(index, color) {
     hazardConfig.waterColors[index] = color;
     renderWaterColors();
+    saveConfigToLocalStorage();
 }
 
 function removeWaterColor(index) {
     hazardConfig.waterColors.splice(index, 1);
     renderWaterColors();
+    saveConfigToLocalStorage();
 }
 
 function addWaterColor() {
     hazardConfig.waterColors.push("#FFFFFF");
     renderWaterColors();
+    saveConfigToLocalStorage();
 }
 
 function getHazardConfig() {
@@ -403,6 +410,54 @@ function getHazardConfig() {
         levels: { ...hazardConfig.levels },
         waterColors: [...hazardConfig.waterColors]
     };
+}
+
+// --- LocalStorage Management ---
+function saveConfigToLocalStorage() {
+    const config = {
+        hazardUrl: document.getElementById('hazardUrl').value,
+        gridSize: document.getElementById('gridSize').value,
+        zoom: document.getElementById('zoom').value,
+        showHazardLayer: document.getElementById('showHazardLayer').checked,
+        hazardName: document.getElementById('hazardName').value,
+        hazardConfig: hazardConfig
+    };
+    localStorage.setItem('hazardRiskConfig', JSON.stringify(config));
+}
+
+function loadConfigFromLocalStorage() {
+    const savedConfig = localStorage.getItem('hazardRiskConfig');
+    if (savedConfig) {
+        try {
+            const config = JSON.parse(savedConfig);
+
+            // Load basic config
+            if (config.hazardUrl) document.getElementById('hazardUrl').value = config.hazardUrl;
+            if (config.gridSize) document.getElementById('gridSize').value = config.gridSize;
+            if (config.zoom) document.getElementById('zoom').value = config.zoom;
+            if (config.showHazardLayer !== undefined) document.getElementById('showHazardLayer').checked = config.showHazardLayer;
+            if (config.hazardName) document.getElementById('hazardName').value = config.hazardName;
+
+            // Load hazard config
+            if (config.hazardConfig) {
+                hazardConfig = config.hazardConfig;
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Error loading config from localStorage:', e);
+            return false;
+        }
+    }
+    return false;
+}
+
+function applyConfigToMap() {
+    // Update map with current config
+    if (map) {
+        // Update hazard layer only - keep OpenStreetMap as base
+        updateHazardLayer();
+    }
 }
 
 function updateHazardLayer() {
@@ -421,11 +476,11 @@ function updateHazardLayer() {
 function initMap() {
     map = L.map('map', {
         center: [35.6895, 139.6917], // Tokyo
-        zoom: 12,
+        zoom: 14,
         minZoom: 2,
         maxZoom: 18
     });
-    L.tileLayer(document.getElementById('baseUrl').value, {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
     drawnItems = new L.FeatureGroup().addTo(map);
@@ -465,6 +520,26 @@ function syncGeoJsonText() {
     ignoreGeoJsonChange = false;
 }
 
+// Hàm chuyển đổi Circle thành Polygon
+function circleToPolygon(center, radius, numPoints = 32) {
+    const coordinates = [];
+    const [lng, lat] = center;
+
+    for (let i = 0; i < numPoints; i++) {
+        const angle = (i / numPoints) * 2 * Math.PI;
+
+        // Tính toán offset theo hướng bắc-nam và đông-tây
+        const latOffset = (radius / 111320) * Math.cos(angle);
+        const lngOffset = (radius / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
+
+        coordinates.push([lng + lngOffset, lat + latOffset]);
+    }
+
+    // Đóng polygon
+    coordinates.push(coordinates[0]);
+    return coordinates;
+}
+
 // Lắng nghe click vào từng layer để phân tích risk
 function bindRiskPopupToLayer(layer) {
     // Remove existing click handlers to prevent duplicate calls
@@ -480,20 +555,34 @@ function bindRiskPopupToLayer(layer) {
 
         // Lấy geojson của layer
         const geojson = layer.toGeoJSON();
+
+        // Xử lý trường hợp Circle (Point) thành Polygon
+        let polygonGeometry = geojson.geometry;
+        if (geojson.geometry.type === 'Point' && layer instanceof L.Circle) {
+            const center = geojson.geometry.coordinates;
+            const radius = layer.getRadius(); // Lấy bán kính của circle
+            const polygonCoords = circleToPolygon(center, radius);
+            polygonGeometry = {
+                type: 'Polygon',
+                coordinates: [polygonCoords]
+            };
+        }
+
         // Lấy config hiện tại
         const hazardUrl = document.getElementById('hazardUrl').value;
-        const baseUrl = document.getElementById('baseUrl').value;
+        const baseUrl = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
         const gridSize = parseInt(document.getElementById('gridSize').value);
         const zoom = parseInt(document.getElementById('zoom').value);
         // Hiển thị popup loading
         layer.bindPopup('Calculating risk...').openPopup(e.latlng || undefined);
         try {
             // Gọi API phân tích risk
-            console.log('geojson', geojson.geometry);
+            console.log('original geojson', geojson.geometry);
+            console.log('processed geometry', polygonGeometry);
 
             // Chuẩn bị payload cho API
             const payload = {
-                polygon: geojson.geometry,
+                polygon: polygonGeometry,
                 hazardTileUrl: hazardUrl,
                 baseTileUrl: baseUrl,
                 gridSize,
@@ -557,6 +646,7 @@ function bindRiskPopupToLayer(layer) {
 // Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
 function rebindAllRiskPopups() {
     drawnItems.eachLayer(function(layer) {
+        // Xử lý tất cả các loại layer có thể phân tích risk
         if (layer instanceof L.Polygon || layer instanceof L.Rectangle || layer instanceof L.Circle) {
             bindRiskPopupToLayer(layer);
         }
@@ -564,12 +654,20 @@ function rebindAllRiskPopups() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Load config from localStorage first
+    const configLoaded = loadConfigFromLocalStorage();
+
     initMap();
     syncGeoJsonText();
 
     // Khởi tạo giao diện cấu hình hazard
     renderRiskLevels();
     renderWaterColors();
+
+    // Apply loaded config to map if config was loaded
+    if (configLoaded) {
+        applyConfigToMap();
+    }
 
     // Khi sửa textarea, cập nhật lại map
     document.getElementById('geojsonText').addEventListener('input', function() {
@@ -584,10 +682,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } catch (e) { /* ignore parse error */ }
     });
+
     // Sự kiện show/hide hazard layer
-    document.getElementById('showHazardLayer').addEventListener('change', updateHazardLayer);
-    document.getElementById('hazardUrl').addEventListener('change', updateHazardLayer);
-    document.getElementById('hazardUrl').addEventListener('blur', updateHazardLayer);
+    document.getElementById('showHazardLayer').addEventListener('change', function() {
+        updateHazardLayer();
+        saveConfigToLocalStorage();
+    });
+
+    // Add event listeners for config changes
+    document.getElementById('hazardUrl').addEventListener('change', function() {
+        updateHazardLayer();
+        saveConfigToLocalStorage();
+    });
+    document.getElementById('hazardUrl').addEventListener('blur', function() {
+        updateHazardLayer();
+        saveConfigToLocalStorage();
+    });
+
+    document.getElementById('gridSize').addEventListener('change', saveConfigToLocalStorage);
+    document.getElementById('gridSize').addEventListener('blur', saveConfigToLocalStorage);
+    document.getElementById('zoom').addEventListener('change', saveConfigToLocalStorage);
+    document.getElementById('zoom').addEventListener('blur', saveConfigToLocalStorage);
+    document.getElementById('hazardName').addEventListener('change', saveConfigToLocalStorage);
+    document.getElementById('hazardName').addEventListener('blur', saveConfigToLocalStorage);
 });
 </script>
 </body>
