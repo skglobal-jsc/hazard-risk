@@ -1,4 +1,5 @@
-import { bbox, booleanPointInPolygon } from '@turf/turf';
+import bbox from '@turf/bbox';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import type { GeoJSONPolygon } from './types';
 
 // Calculate bounding box [minX, minY, maxX, maxY]

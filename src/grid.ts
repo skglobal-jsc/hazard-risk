@@ -1,6 +1,7 @@
 import { getBoundingBox } from './polygon';
 import type { GeoJSONPolygon, GridPoint } from './types';
-import * as turf from '@turf/turf';
+import pointGrid from '@turf/point-grid';
+import { feature } from '@turf/helpers';
 
 // Create point grid covering bounding box
 export function createGrid(
@@ -8,17 +9,19 @@ export function createGrid(
   gridSize: number, // meters
   zoom: number
 ): GridPoint[] {
+  if (!polygon || polygon.type !== 'Polygon' || !Array.isArray(polygon.coordinates)) {
+    throw new Error('Invalid GeoJSON Polygon');
+  }
   const bbox = getBoundingBox(polygon);
 
-  // Use turf.pointGrid with mask to create point grid inside polygon
-  const pointGrid = turf.pointGrid(bbox, gridSize, {
+  const pointGrids = pointGrid(bbox, gridSize, {
     units: 'meters',
-    mask: turf.feature(polygon)
+    mask: feature(polygon)
   });
 
   // Convert turf points to GridPoint[]
   const grid: GridPoint[] = [];
-  for (const feature of pointGrid.features) {
+  for (const feature of pointGrids.features) {
     const [lon, lat] = feature.geometry.coordinates;
     const tile = latLonToTile(lat, lon, zoom);
     const pixel = latLonToPixel(lat, lon, zoom);

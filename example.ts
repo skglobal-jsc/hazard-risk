@@ -1,13 +1,14 @@
 import { analyzeRiskInPolygon } from './src/index';
 import { createHazardConfig, classifyRiskFromRGB, DEFAULT_TSUNAMI_CONFIG } from './src/risk';
 import { TileCache } from './src/cache';
-import * as turf from '@turf/turf';
 import { HazardConfig } from './src/types';
+import { point } from '@turf/helpers';
+import circle from '@turf/circle';
 
 
-const RADIUS = 1000;
-const GRID_SIZE = 2;
-const ZOOM = 16;
+const RADIUS = 3000;
+const GRID_SIZE = 80;
+const ZOOM = 12;
 
 const TILE_URL = 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
 const BASE_TILE_URL = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
@@ -16,9 +17,9 @@ async function main() {
   console.log('🚀 Bắt đầu phân tích rủi ro...\n');
 
   // Tạo polygon hình tròn bán kính 100m quanh vị trí mới
-  const center = turf.point([141.3543113869357, 43.06194898993809]);
+  const center = point([141.3543113869357, 43.06194898993809]);
   const radius = RADIUS;
-  const polygon = turf.circle(center, radius, { units: 'meters' });
+  const polygon = circle(center, radius, { units: 'meters' });
 
   // Tạo cache với preload
   const tileCache = new TileCache(200 * 1024 * 1024, 10 * 60 * 1000); // 200MB, 10 phút

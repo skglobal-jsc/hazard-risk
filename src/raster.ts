@@ -78,16 +78,6 @@ export function createTileProvider(urlTemplate: string, cache?: TileCache) {
   };
 }
 
-export function createNodeTileProvider(urlTemplate: string, cache?: any) {
-  return async (z: number, x: number, y: number): Promise<Buffer> => {
-    const url = urlTemplate
-      .replace('{z}', z.toString())
-      .replace('{x}', x.toString())
-      .replace('{y}', y.toString());
-    return await fetchTile(url, cache); // fetchTile returns Buffer
-  };
-}
-
 // Implementation for Node.js (using pngjs)
 export class NodeRasterReader implements RasterReader {
   constructor(private tileProvider: (z: number, x: number, y: number) => Promise<Buffer>) {}
@@ -152,14 +142,6 @@ export class NodeRasterReader implements RasterReader {
     // isWater: always false in this NodeRasterReader demo
     return { riskLevel, isWater: false };
   }
-}
-
-function getPixelFromPng(png: PNGWithMetadata | undefined, x: number, y: number): [number, number, number] {
-  if (!png) return [0, 0, 0];
-  const { width, height, data } = png;
-  if (x < 0 || x >= width || y < 0 || y >= height) return [0, 0, 0];
-  const idx = (y * width + x) * 4;
-  return [data[idx] || 0, data[idx + 1] || 0, data[idx + 2] || 0];
 }
 
 // Implementation for Browser (using canvas)
@@ -262,18 +244,20 @@ export function createBrowserTileProvider(urlTemplate: string) {
       .replace('{x}', x.toString())
       .replace('{y}', y.toString());
     try {
-      // Fetch by axios, responseType: 'blob'
-      const response = await axios.get(url, { responseType: 'blob' });
-      const blob = response.data;
-      // Create ImageBitmap from blob (browser API)
+      const res = await fetch(url);
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.warn(`Tile not found (404): ${url} - Treating as no risk`);
+          throw new Error(`TILE_NOT_FOUND: ${url}`);
+        }
+        throw new Error(`HTTP ${res.status}: ${url}`);
+      }
+      const blob = await res.blob();
       return await createImageBitmap(blob);
     } catch (error: any) {
-      // Handle 404 or timeout similarly to Node
-      if (error.response?.status === 404) {
-        console.warn(`Tile not found (404): ${url} - Treating as no risk`);
-        throw new Error(`TILE_NOT_FOUND: ${url}`);
-      }
-      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+
+      // Handle timeout
+      if (error.message?.includes('timeout')) {
         console.warn(`Timeout fetching tile: ${url}`);
         throw new Error(`TIMEOUT: ${url}`);
       }
