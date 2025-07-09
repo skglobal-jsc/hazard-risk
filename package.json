@@ -1,6 +1,6 @@
 {
   "name": "@sk-global/hazard-risk",
-  "version": "0.0.11",
+  "version": "0.1.4",
   "description": "A TypeScript library for analyzing hazard risks and calculating risk assessments",
   "keywords": [
     "hazard",
@@ -12,13 +12,19 @@
   ],
   "homepage": "https://github.com/skglobal-jsc/hazard-risk#readme",
   "source": "src/index.ts",
-  "main": "./dist/index.js",
+  "main": "dist/index.js",
   "module": "dist/index.module.js",
   "unpkg": "dist/index.umd.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.module.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
-    "dist/**.js*",
-    "dist/**/*.ts"
+    "dist"
   ],
   "engines": {
     "node": ">=16.0.0"
@@ -26,8 +32,8 @@
   "scripts": {
     "dev": "ts-node example.ts",
     "build:types": "tsc --emitDeclarationOnly",
-    "build": "npm run build:types && microbundle --define PKG_VERSION=$npm_package_version",
-    "watch": "microbundle watch --define PKG_VERSION=$npm_package_version",
+    "build": "microbundle --target node --format modern,cjs,umd --no-sourcemap",
+    "watch": "microbundle watch --target node --format modern,cjs,umd --no-sourcemap",
     "clean": "rm -rf dist coverage",
     "type-check": "tsc --noEmit",
     "test": "jest --coverage",
@@ -35,8 +41,8 @@
     "test:ci": "jest --ci --coverage --watchAll=false",
     "lint": "prettier src test -c",
     "format": "prettier src test --write",
-    "prepack": "npm run clean && npm run build",
-    "publish": "npm run prepack && npm publish --ignore-scripts",
+    "prepack": "npm run clean && npm run build:types && npm run build",
+    "publish": "npm publish --ignore-scripts",
     "release": "npx np --ignore-scripts"
   },
   "devDependencies": {

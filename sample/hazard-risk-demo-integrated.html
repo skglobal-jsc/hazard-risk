@@ -148,7 +148,6 @@
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="../dist/index.umd.js?v=1.0.4"></script>
 <script>
 // --- Tab logic ---
 function showTab(tab) {
@@ -236,32 +235,80 @@ function bindRiskPopupToLayer(layer) {
         // Hiển thị popup loading
         layer.bindPopup('Calculating risk...').openPopup(e.latlng || undefined);
         try {
-            // Gọi hàm phân tích risk
+            // Gọi API phân tích risk
             console.log('geojson', geojson.geometry);
-            const result = await window.hazardRisk.analyzeRiskInPolygonBrowser({
+
+            // Chuẩn bị payload cho API
+            const payload = {
                 polygon: geojson.geometry,
                 hazardTileUrl: hazardUrl,
                 baseTileUrl: baseUrl,
                 gridSize,
                 zoom,
-                currentLocation: null,
-                onProgress: null
+                hazardConfig: {
+                    name: "Tsunami Depth (GSI Japan)",
+                    levels: {
+                        "0": { name: "level0", color: "#FFFFFF", description: "0m" },
+                        "1": { name: "level1", color: "#FFFFB3", description: "<0.3m" },
+                        "2": { name: "level2", color: "#F7F5A9", description: "<0.5m" },
+                        "3": { name: "level3", color: "#F8E1A6", description: "0.5~1m" },
+                        "4": { name: "level4", color: "#FFD8C0", description: "0.5~3m" },
+                        "5": { name: "level5", color: "#FFB7B7", description: "3~5m" },
+                        "6": { name: "level6", color: "#FF9191", description: "5~10m" },
+                        "7": { name: "level7", color: "#F285C9", description: "10~20m" },
+                        "8": { name: "level8", color: "#DC7ADC", description: ">20m" }
+                    },
+                    waterColors: ["#bed2ff", "#f7f5a9", "#8bb8ff", "#6aa8ff"]
+                },
+                currentLocation: {
+                    lat: e.latlng.lat,
+                    lon: e.latlng.lng
+                }
+            };
+
+            // Gọi API
+            const response = await fetch('https://dev-public-api.uni-voice.biz/api/v1/hazardmap/risk-analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.status !== 'OK') {
+                throw new Error('API returned error status');
+            }
+
             // Hiển thị kết quả risk
             let html = '<b>Risk Analysis</b><br/>';
-            html += `<b>Total Points:</b> ${result.stats.total}<br/>`;
-            html += `<b>Water Points:</b> ${result.waterCount}<br/>`;
+            html += `<b>Total Points:</b> ${result.data.stats.total}<br/>`;
+            html += `<b>Water Points:</b> ${result.data.waterCount}<br/>`;
             html += '<b>Risk Distribution:</b><br/>';
-            Object.entries(result.stats).forEach(([level, count]) => {
+            Object.entries(result.data.stats).forEach(([level, count]) => {
                 if (level !== 'total' && count > 0) {
-                    const ratio = ((count / result.stats.total) * 100).toFixed(1);
+                    const ratio = ((count / result.data.stats.total) * 100).toFixed(1);
                     html += `Level ${level}: ${count} (${ratio}%)<br/>`;
                 }
             });
+
+            // Thêm thông tin về điểm gần nhất nếu có
+            if (result.data.nearestPoints) {
+                html += '<br/><b>Nearest Points:</b><br/>';
+                Object.entries(result.data.nearestPoints).forEach(([level, point]) => {
+                    html += `Level ${level}: ${point.distance.toFixed(1)}m away<br/>`;
+                });
+            }
+
             layer.setPopupContent(html);
         } catch (err) {
             console.error(err);
-            layer.setPopupContent('Risk analysis failed!');
+            layer.setPopupContent('Risk analysis failed! Error: ' + err.message);
         }
     });
 }

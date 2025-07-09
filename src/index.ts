@@ -10,7 +10,7 @@ import nearestPoint from '@turf/nearest-point';
 
 
 // Preload all hazard and base tiles in parallel
-async function preloadTiles(tileCoords, hazardTileProvider, baseTileProvider) {
+async function preloadTiles(tileCoords: { z: number, x: number, y: number }[], hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>, baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>) {
   await Promise.all([
     ...tileCoords.map(coord => hazardTileProvider(coord.z, coord.x, coord.y)),
     ...tileCoords.map(coord => baseTileProvider(coord.z, coord.x, coord.y))
@@ -18,7 +18,7 @@ async function preloadTiles(tileCoords, hazardTileProvider, baseTileProvider) {
 }
 
 // Group points by tile
-function groupPointsByTile(grid) {
+function groupPointsByTile(grid: GridPoint[]) {
   const tilePointMap = new Map();
   for (const point of grid) {
     const key = `${point.tile.z}/${point.tile.x}/${point.tile.y}`;
@@ -147,7 +147,8 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
   }
 
   const grid = createGrid(options.polygon, options.gridSize, options.zoom);
-  const tileCoords = [...new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`))].map(key => {
+  const tileCoordSet = new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`));
+  const tileCoords = Array.from(tileCoordSet).map(key => {
     const [z, x, y] = key.split('/').map(Number);
     return { z, x, y };
   });
@@ -178,7 +179,7 @@ export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): 
     const [z, x, y] = key.split('/').map(Number);
     return { z, x, y };
   });
-  await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
+  // await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
   // return await calculateStatsAndOptionallyNearestPoints(
   //   grid,
   //   hazardTileProvider,
