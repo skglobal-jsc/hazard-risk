@@ -101,6 +101,130 @@
         .config-form .form-group {
             margin-bottom: 14px;
         }
+        .hazard-config {
+            border-top: 1px solid #e0e0e0;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+        .hazard-config h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .level-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        .level-item:hover {
+            background: #f0f0f0;
+        }
+        .level-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .level-inputs {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .level-inputs input {
+            margin: 0;
+            padding: 4px 6px;
+            font-size: 12px;
+        }
+        .level-inputs input[type="text"] {
+            flex: 1;
+        }
+        .level-inputs input[type="color"] {
+            width: 30px;
+            height: 25px;
+            padding: 0;
+            border: none;
+            border-radius: 3px;
+        }
+        .add-level-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .add-level-btn:hover {
+            background: #45a049;
+        }
+        .remove-level-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .remove-level-btn:hover {
+            background: #da190b;
+        }
+        .water-colors {
+            margin-top: 15px;
+        }
+        .water-colors h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        .color-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .color-item input[type="color"] {
+            width: 25px;
+            height: 20px;
+            border: none;
+            border-radius: 2px;
+        }
+        .add-color-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .add-color-btn:hover {
+            background: #1976D2;
+        }
+        .remove-color-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .remove-color-btn:hover {
+            background: #da190b;
+        }
         @media (max-width: 900px) {
             .side-panel { width: 100vw; position: absolute; z-index: 10; right: 0; top: 0; height: 60vh; }
             .container { flex-direction: column; }
@@ -143,6 +267,30 @@
                     <input type="number" id="zoom" value="12" min="2" max="20">
                 </div>
             </form>
+
+            <div class="hazard-config">
+                <h3>Hazard Configuration</h3>
+                <div class="form-group">
+                    <label for="hazardName">Hazard Name</label>
+                    <input type="text" id="hazardName" value="Tsunami Depth (GSI Japan)">
+                </div>
+
+                <div class="form-group">
+                    <label>Risk Levels</label>
+                    <div id="riskLevels">
+                        <!-- Risk levels will be populated by JavaScript -->
+                    </div>
+                    <button type="button" class="add-level-btn" onclick="addRiskLevel()">+ Add Level</button>
+                </div>
+
+                <div class="water-colors">
+                    <h4>Water Colors</h4>
+                    <div id="waterColors" class="color-list">
+                        <!-- Water colors will be populated by JavaScript -->
+                    </div>
+                    <button type="button" class="add-color-btn" onclick="addWaterColor()">+ Add Color</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -160,6 +308,102 @@ function showTab(tab) {
 // --- Map & Draw logic ---
 let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
 let hazardLayer = null;
+let isAnalyzing = false; // Prevent multiple API calls
+
+// --- Hazard Configuration ---
+let hazardConfig = {
+    name: "Tsunami Depth (GSI Japan)",
+    levels: {
+        "0": { name: "level0", color: "#FFFFFF", description: "0m" },
+        "1": { name: "level1", color: "#FFFFB3", description: "<0.3m" },
+        "2": { name: "level2", color: "#F7F5A9", description: "<0.5m" },
+        "3": { name: "level3", color: "#F8E1A6", description: "0.5~1m" },
+        "4": { name: "level4", color: "#FFD8C0", description: "0.5~3m" },
+        "5": { name: "level5", color: "#FFB7B7", description: "3~5m" },
+        "6": { name: "level6", color: "#FF9191", description: "5~10m" },
+        "7": { name: "level7", color: "#F285C9", description: "10~20m" },
+        "8": { name: "level8", color: "#DC7ADC", description: ">20m" }
+    },
+    waterColors: ["#bed2ff"]
+};
+
+function renderRiskLevels() {
+    const container = document.getElementById('riskLevels');
+    container.innerHTML = '';
+
+    Object.entries(hazardConfig.levels).forEach(([level, config]) => {
+        const levelItem = document.createElement('div');
+        levelItem.className = 'level-item';
+        levelItem.innerHTML = `
+            <div class="level-color" style="background-color: ${config.color}"></div>
+            <div class="level-inputs">
+                <input type="text" placeholder="Name" value="${config.name}" onchange="updateLevel('${level}', 'name', this.value)">
+                <input type="text" placeholder="Description" value="${config.description}" onchange="updateLevel('${level}', 'description', this.value)">
+                <input type="color" value="${config.color}" onchange="updateLevel('${level}', 'color', this.value)">
+                <button type="button" class="remove-level-btn" onclick="removeLevel('${level}')">×</button>
+            </div>
+        `;
+        container.appendChild(levelItem);
+    });
+}
+
+function renderWaterColors() {
+    const container = document.getElementById('waterColors');
+    container.innerHTML = '';
+
+    hazardConfig.waterColors.forEach((color, index) => {
+        const colorItem = document.createElement('div');
+        colorItem.className = 'color-item';
+        colorItem.innerHTML = `
+            <input type="color" value="${color}" onchange="updateWaterColor(${index}, this.value)">
+            <button type="button" class="remove-color-btn" onclick="removeWaterColor(${index})">×</button>
+        `;
+        container.appendChild(colorItem);
+    });
+}
+
+function updateLevel(level, field, value) {
+    hazardConfig.levels[level][field] = value;
+    renderRiskLevels();
+}
+
+function removeLevel(level) {
+    delete hazardConfig.levels[level];
+    renderRiskLevels();
+}
+
+function addRiskLevel() {
+    const newLevel = Object.keys(hazardConfig.levels).length;
+    hazardConfig.levels[newLevel] = {
+        name: `level${newLevel}`,
+        color: "#FFFFFF",
+        description: "New level"
+    };
+    renderRiskLevels();
+}
+
+function updateWaterColor(index, color) {
+    hazardConfig.waterColors[index] = color;
+    renderWaterColors();
+}
+
+function removeWaterColor(index) {
+    hazardConfig.waterColors.splice(index, 1);
+    renderWaterColors();
+}
+
+function addWaterColor() {
+    hazardConfig.waterColors.push("#FFFFFF");
+    renderWaterColors();
+}
+
+function getHazardConfig() {
+    return {
+        name: document.getElementById('hazardName').value,
+        levels: { ...hazardConfig.levels },
+        waterColors: [...hazardConfig.waterColors]
+    };
+}
 
 function updateHazardLayer() {
     const url = document.getElementById('hazardUrl').value;
@@ -190,7 +434,7 @@ function initMap() {
         draw: {
             polygon: true,
             rectangle: true,
-            circle: false,
+            circle: true,
             marker: false,
             polyline: false,
             circlemarker: false
@@ -219,12 +463,21 @@ function syncGeoJsonText() {
     const geojson = drawnItems.toGeoJSON();
     document.getElementById('geojsonText').value = JSON.stringify(geojson, null, 2);
     ignoreGeoJsonChange = false;
-    rebindAllRiskPopups();
 }
 
 // Lắng nghe click vào từng layer để phân tích risk
 function bindRiskPopupToLayer(layer) {
+    // Remove existing click handlers to prevent duplicate calls
+    layer.off('click');
     layer.on('click', async function(e) {
+        // Prevent multiple API calls
+        if (isAnalyzing) {
+            console.log('Analysis already in progress, skipping...');
+            return;
+        }
+
+        isAnalyzing = true;
+
         // Lấy geojson của layer
         const geojson = layer.toGeoJSON();
         // Lấy config hiện tại
@@ -245,21 +498,7 @@ function bindRiskPopupToLayer(layer) {
                 baseTileUrl: baseUrl,
                 gridSize,
                 zoom,
-                hazardConfig: {
-                    name: "Tsunami Depth (GSI Japan)",
-                    levels: {
-                        "0": { name: "level0", color: "#FFFFFF", description: "0m" },
-                        "1": { name: "level1", color: "#FFFFB3", description: "<0.3m" },
-                        "2": { name: "level2", color: "#F7F5A9", description: "<0.5m" },
-                        "3": { name: "level3", color: "#F8E1A6", description: "0.5~1m" },
-                        "4": { name: "level4", color: "#FFD8C0", description: "0.5~3m" },
-                        "5": { name: "level5", color: "#FFB7B7", description: "3~5m" },
-                        "6": { name: "level6", color: "#FF9191", description: "5~10m" },
-                        "7": { name: "level7", color: "#F285C9", description: "10~20m" },
-                        "8": { name: "level8", color: "#DC7ADC", description: ">20m" }
-                    },
-                    waterColors: ["#bed2ff", "#f7f5a9", "#8bb8ff", "#6aa8ff"]
-                },
+                hazardConfig: getHazardConfig(),
                 currentLocation: {
                     lat: e.latlng.lat,
                     lon: e.latlng.lng
@@ -309,6 +548,8 @@ function bindRiskPopupToLayer(layer) {
         } catch (err) {
             console.error(err);
             layer.setPopupContent('Risk analysis failed! Error: ' + err.message);
+        } finally {
+            isAnalyzing = false;
         }
     });
 }
@@ -325,6 +566,11 @@ function rebindAllRiskPopups() {
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
     syncGeoJsonText();
+
+    // Khởi tạo giao diện cấu hình hazard
+    renderRiskLevels();
+    renderWaterColors();
+
     // Khi sửa textarea, cập nhật lại map
     document.getElementById('geojsonText').addEventListener('input', function() {
         if (ignoreGeoJsonChange) return;
