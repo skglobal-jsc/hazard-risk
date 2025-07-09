@@ -159,6 +159,20 @@ function showTab(tab) {
 
 // --- Map & Draw logic ---
 let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
+let hazardLayer = null;
+
+function updateHazardLayer() {
+    const url = document.getElementById('hazardUrl').value;
+    const show = document.getElementById('showHazardLayer').checked;
+    if (hazardLayer) {
+        map.removeLayer(hazardLayer);
+        hazardLayer = null;
+    }
+    if (show && url) {
+        hazardLayer = L.tileLayer(url, { opacity: 0.7, attribution: 'Hazard Data' });
+        hazardLayer.addTo(map);
+    }
+}
 
 function initMap() {
     map = L.map('map', {
@@ -175,10 +189,10 @@ function initMap() {
         edit: { featureGroup: drawnItems, remove: true },
         draw: {
             polygon: true,
-            polyline: false,
             rectangle: true,
             circle: true,
-            marker: true,
+            marker: false,
+            polyline: false,
             circlemarker: false
         }
     });
@@ -189,6 +203,7 @@ function initMap() {
     });
     map.on(L.Draw.Event.EDITED, function (e) { syncGeoJsonText(); });
     map.on(L.Draw.Event.DELETED, function (e) { syncGeoJsonText(); });
+    updateHazardLayer();
 }
 
 // --- GeoJSON sync logic ---
@@ -215,6 +230,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } catch (e) { /* ignore parse error */ }
     });
+    // Sự kiện show/hide hazard layer
+    document.getElementById('showHazardLayer').addEventListener('change', updateHazardLayer);
+    document.getElementById('hazardUrl').addEventListener('change', updateHazardLayer);
+    document.getElementById('hazardUrl').addEventListener('blur', updateHazardLayer);
 });
 </script>
 </body>
