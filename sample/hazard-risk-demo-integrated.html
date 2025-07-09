@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Hazard Risk GeoJSON Editor</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Calibri', 'Trebuchet MS', 'Ubuntu', Arial, sans-serif;
+            background: #f6f8fa;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        .map-panel {
+            flex: 1 1 0;
+            min-width: 0;
+            position: relative;
+            background: #eaeaea;
+        }
+        #map {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 1;
+        }
+        .side-panel {
+            width: 420px;
+            background: #fff;
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.04);
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px 0;
+            text-align: center;
+            background: #f6f8fa;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .tab-btn.active {
+            background: #fff;
+            border-bottom: 2px solid #1976d2;
+            color: #1976d2;
+            font-weight: bold;
+        }
+        .tab-content {
+            flex: 1;
+            padding: 18px 18px 12px 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .geojson-textarea {
+            width: 100%;
+            flex: 1 1 0;
+            min-height: 0;
+            height: 100%;
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px solid #d0d0d0;
+            padding: 10px;
+            resize: none;
+            background: #f9f9f9;
+        }
+        .config-form label {
+            font-weight: bold;
+            margin-top: 12px;
+            display: block;
+            font-size: 13px;
+        }
+        .config-form input {
+            width: 100%;
+            padding: 7px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-size: 13px;
+            background: #f9f9f9;
+        }
+        .config-form {
+            margin-top: 8px;
+        }
+        .config-form .form-group {
+            margin-bottom: 14px;
+        }
+        @media (max-width: 900px) {
+            .side-panel { width: 100vw; position: absolute; z-index: 10; right: 0; top: 0; height: 60vh; }
+            .container { flex-direction: column; }
+            .map-panel { height: 40vh; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="map-panel">
+        <div id="map"></div>
+    </div>
+    <div class="side-panel">
+        <div class="tabs">
+            <button class="tab-btn active" id="tabGeoJsonBtn" onclick="showTab('geojson')">GeoJSON</button>
+            <button class="tab-btn" id="tabConfigBtn" onclick="showTab('config')">Config</button>
+        </div>
+        <div class="tab-content" id="tabGeoJson">
+            <textarea id="geojsonText" class="geojson-textarea"></textarea>
+        </div>
+        <div class="tab-content" id="tabConfig" style="display:none;">
+            <form class="config-form" autocomplete="off" onsubmit="return false;">
+                <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <label for="hazardUrl" style="margin: 0; flex: 1;">Hazard Tile URL</label>
+                    <label style="margin: 0; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        <input type="checkbox" id="showHazardLayer" checked> <span>Show Layer</span>
+                    </label>
+                </div>
+                <input type="text" id="hazardUrl" value="https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png">
+                <div class="form-group">
+                    <label for="baseUrl">Base Map Tile URL</label>
+                    <input type="text" id="baseUrl" value="https://tile.openstreetmap.org/{z}/{x}/{y}.png">
+                </div>
+                <div class="form-group">
+                    <label for="gridSize">Grid Size (meters)</label>
+                    <input type="number" id="gridSize" value="100" min="10" max="1000">
+                </div>
+                <div class="form-group">
+                    <label for="zoom">Zoom level</label>
+                    <input type="number" id="zoom" value="12" min="2" max="20">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+// --- Tab logic ---
+function showTab(tab) {
+    document.getElementById('tabGeoJson').style.display = tab === 'geojson' ? '' : 'none';
+    document.getElementById('tabConfig').style.display = tab === 'config' ? '' : 'none';
+    document.getElementById('tabGeoJsonBtn').classList.toggle('active', tab === 'geojson');
+    document.getElementById('tabConfigBtn').classList.toggle('active', tab === 'config');
+}
+
+// --- Map & Draw logic ---
+let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
+
+function initMap() {
+    map = L.map('map', {
+        center: [35.6895, 139.6917], // Tokyo
+        zoom: 12,
+        minZoom: 2,
+        maxZoom: 20
+    });
+    L.tileLayer(document.getElementById('baseUrl').value, {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    drawnItems = new L.FeatureGroup().addTo(map);
+    drawControl = new L.Control.Draw({
+        edit: { featureGroup: drawnItems, remove: true },
+        draw: {
+            polygon: true,
+            polyline: false,
+            rectangle: true,
+            circle: true,
+            marker: true,
+            circlemarker: false
+        }
+    });
+    map.addControl(drawControl);
+    map.on(L.Draw.Event.CREATED, function (e) {
+        drawnItems.addLayer(e.layer);
+        syncGeoJsonText();
+    });
+    map.on(L.Draw.Event.EDITED, function (e) { syncGeoJsonText(); });
+    map.on(L.Draw.Event.DELETED, function (e) { syncGeoJsonText(); });
+}
+
+// --- GeoJSON sync logic ---
+function syncGeoJsonText() {
+    ignoreGeoJsonChange = true;
+    const geojson = drawnItems.toGeoJSON();
+    document.getElementById('geojsonText').value = JSON.stringify(geojson, null, 2);
+    ignoreGeoJsonChange = false;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initMap();
+    syncGeoJsonText();
+    // Khi sửa textarea, cập nhật lại map
+    document.getElementById('geojsonText').addEventListener('input', function() {
+        if (ignoreGeoJsonChange) return;
+        try {
+            const geojson = JSON.parse(this.value);
+            drawnItems.clearLayers();
+            L.geoJSON(geojson, {
+                onEachFeature: function (feature, layer) {
+                    drawnItems.addLayer(layer);
+                }
+            });
+        } catch (e) { /* ignore parse error */ }
+    });
+});
+</script>
+</body>
+</html>

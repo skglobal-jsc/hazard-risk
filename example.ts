@@ -5,9 +5,9 @@ import * as turf from '@turf/turf';
 import { HazardConfig } from './src/types';
 
 
-const RADIUS = 3000;
-const GRID_SIZE = 80;
-const ZOOM = 12;
+const RADIUS = 1000;
+const GRID_SIZE = 2;
+const ZOOM = 16;
 
 const TILE_URL = 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
 const BASE_TILE_URL = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
@@ -105,7 +105,6 @@ async function main() {
       gridSize: GRID_SIZE, // 5 mét
       zoom: ZOOM,
       hazardConfig: hazardConfig,
-
       currentLocation: {
         lat: center.geometry.coordinates[1],
         lon: center.geometry.coordinates[0]
