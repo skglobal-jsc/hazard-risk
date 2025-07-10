@@ -432,6 +432,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://unpkg.com/leaflet-geometryutil@0.10.0/src/leaflet.geometryutil.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
 // --- Tab logic ---
 function showTab(tab) {
@@ -647,18 +648,34 @@ function showBoundingBox() {
     `;
 }
 
+function getCirclePolygonGeoJson(circle) {
+    // Dùng turf.circle để tạo polygon GeoJSON từ L.Circle
+    const center = [circle.getLatLng().lng, circle.getLatLng().lat];
+    const radius = circle.getRadius() / 1000; // turf.circle nhận đơn vị km
+    return turf.circle(center, radius, { steps: 64, units: 'kilometers' }).geometry;
+}
+
 function showGridPoints() {
     if (!selectedPolygon) return;
 
-    const bounds = selectedPolygon.getBounds();
+    let polygonGeoJson;
+    if (selectedPolygon instanceof L.Circle) {
+        polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
+    } else {
+        polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
+    }
     const gridSize = parseInt(document.getElementById('gridSize').value);
-    const points = [];
 
-    // Create grid points
-    for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += gridSize / 111320) {
-        for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += gridSize / (111320 * Math.cos(lat * Math.PI / 180))) {
-            points.push([lat, lng]);
-        }
+    // Tạo lưới toàn bộ bounding box (không mask)
+    const bbox = turf.bbox(polygonGeoJson);
+    const pointGrids = turf.pointGrid(bbox, gridSize, {
+        units: 'meters'
+    });
+
+    const points = [];
+    for (const feature of pointGrids.features) {
+        const [lng, lat] = feature.geometry.coordinates;
+        points.push([lat, lng]);
     }
 
     demoLayers.gridPoints = L.layerGroup(
@@ -679,33 +696,22 @@ function showGridPoints() {
     `;
 }
 
-function pointInPolygon(point, polygonLatLngs) {
-    // Chuyển về mảng [lng, lat]
-    const x = point.lng, y = point.lat;
-    let inside = false;
-    // polygonLatLngs có thể là mảng 2 chiều (đa polygon), hoặc 1 chiều (polygon đơn)
-    const rings = Array.isArray(polygonLatLngs[0]) ? polygonLatLngs : [polygonLatLngs];
-    for (let ring of rings) {
-        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-            const xi = ring[i].lng, yi = ring[i].lat;
-            const xj = ring[j].lng, yj = ring[j].lat;
-            const intersect = ((yi > y) !== (yj > y)) &&
-                (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-12) + xi);
-            if (intersect) inside = !inside;
-        }
-    }
-    return inside;
-}
-
 function showFilteredPoints() {
     if (!selectedPolygon || !demoLayers.gridPoints) return;
 
-    const polygonLatLngs = selectedPolygon.getLatLngs();
+    let polygonGeoJson;
+    if (selectedPolygon instanceof L.Circle) {
+        polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
+    } else {
+        polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
+    }
     const filteredPoints = [];
     const toRemove = [];
     demoLayers.gridPoints.eachLayer(pointLayer => {
         const point = pointLayer.getLatLng();
-        if (pointInPolygon(point, polygonLatLngs)) {
+        const pt = turf.point([point.lng, point.lat]);
+        const inside = turf.booleanPointInPolygon(pt, polygonGeoJson);
+        if (inside) {
             filteredPoints.push(point);
             pointLayer.setStyle({
                 color: '#4CAF50',
@@ -718,11 +724,11 @@ function showFilteredPoints() {
     });
     toRemove.forEach(layer => demoLayers.gridPoints.removeLayer(layer));
 
-    document.getElementById('demoDescription').textContent = 'Step 3: Filter Inside - Removes points outside the polygon, keeping only points inside the area of interest.';
+    document.getElementById('demoDescription').textContent = 'Step 3: Filter Inside - Removes points outside the polygon/circle, keeping only points inside the area of interest.';
     document.getElementById('demoStats').innerHTML = `
         <strong>Filtered Points:</strong><br/>
-        Inside Polygon: ${filteredPoints.length}<br/>
-        Outside Polygon: ${toRemove.length}<br/>
+        Inside Area: ${filteredPoints.length}<br/>
+        Outside Area: ${toRemove.length}<br/>
         Total Grid Points: ${filteredPoints.length + toRemove.length}
     `;
 }
