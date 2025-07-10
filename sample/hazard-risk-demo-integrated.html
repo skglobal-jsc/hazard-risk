@@ -311,6 +311,7 @@ function showTab(tab) {
 let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
 let hazardLayer = null;
 let isAnalyzing = false; // Prevent multiple API calls
+let isImporting = false; // Prevent multiple imports
 
 // --- Hazard Configuration ---
 let hazardConfig = {
@@ -543,9 +544,11 @@ function circleToPolygon(center, radius, numPoints = 32) {
 
 // Lắng nghe click vào từng layer để phân tích risk
 function bindRiskPopupToLayer(layer) {
+    console.log('Binding click event to layer:', layer);
     // Remove existing click handlers to prevent duplicate calls
     layer.off('click');
     layer.on('click', async function(e) {
+        console.log('Layer clicked!', layer);
         // Prevent multiple API calls
         if (isAnalyzing) {
             console.log('Analysis already in progress, skipping...');
@@ -673,12 +676,15 @@ function bindRiskPopupToLayer(layer) {
 
 // Hàm xử lý import GeoJSON
 function importGeoJSON(geojsonText) {
-    if (ignoreGeoJsonChange) return;
+    console.log('Importing GeoJSON...');
+    if (ignoreGeoJsonChange || isImporting) return;
+    isImporting = true;
     try {
         const geojson = JSON.parse(geojsonText);
+        console.log('Parsed GeoJSON:', geojson);
         drawnItems.clearLayers();
 
-        let firstLayer = null;
+                let firstLayer = null;
 
         L.geoJSON(geojson, {
             onEachFeature: function (feature, layer) {
@@ -690,10 +696,14 @@ function importGeoJSON(geojsonText) {
             }
         });
 
+
+
         // Bind events cho các layer mới được import
+        console.log('About to bind events...');
+        // Bind events ngay lập tức
         rebindAllRiskPopups();
 
-        // Tự động move map đến polygon đầu tiên nếu có
+        // Tự động move map đến polygon đầu tiên nếu có với hiệu ứng bay
         if (firstLayer && map) {
             // Nếu là GeoJSON FeatureCollection, lấy feature đầu tiên
             if (geojson.type === 'FeatureCollection' && geojson.features.length > 0) {
@@ -702,37 +712,77 @@ function importGeoJSON(geojsonText) {
                     // Tính bounds của polygon đầu tiên
                     const coordinates = firstFeature.geometry.coordinates[0];
                     const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
-                    map.fitBounds(bounds, { padding: [20, 20] });
+                    map.flyToBounds(bounds, {
+                        padding: [20, 20],
+                        duration: 1.5,
+                        easeLinearity: 0.25
+                    }).on('end', function() {
+                        console.log('Map fly completed, rebinding events...');
+                        rebindAllRiskPopups();
+                    });
                 }
             } else if (geojson.type === 'Feature' && geojson.geometry && geojson.geometry.type === 'Polygon') {
                 // Nếu là single Feature với Polygon
                 const coordinates = geojson.geometry.coordinates[0];
                 const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
-                map.fitBounds(bounds, { padding: [20, 20] });
+                map.flyToBounds(bounds, {
+                    padding: [20, 20],
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                }).on('end', function() {
+                    console.log('Map fly completed, rebinding events...');
+                    rebindAllRiskPopups();
+                });
             } else if (geojson.type === 'Polygon') {
                 // Nếu là Polygon trực tiếp
                 const coordinates = geojson.coordinates[0];
                 const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
-                map.fitBounds(bounds, { padding: [20, 20] });
+                map.flyToBounds(bounds, {
+                    padding: [20, 20],
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                }).on('end', function() {
+                    console.log('Map fly completed, rebinding events...');
+                    rebindAllRiskPopups();
+                });
             } else {
                 // Fallback: move đến layer đầu tiên
-                map.fitBounds(firstLayer.getBounds(), { padding: [20, 20] });
+                map.flyToBounds(firstLayer.getBounds(), {
+                    padding: [20, 20],
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                }).on('end', function() {
+                    console.log('Map fly completed, rebinding events...');
+                    rebindAllRiskPopups();
+                });
             }
+        } else {
+            // Nếu không có fly animation, bind events ngay
+            setTimeout(() => {
+                console.log('No fly animation, rebinding events...');
+                rebindAllRiskPopups();
+            }, 100);
         }
     } catch (e) {
         console.error('Error parsing GeoJSON:', e);
         // ignore parse error
+    } finally {
+        isImporting = false;
     }
 }
 
 // Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
 function rebindAllRiskPopups() {
+    console.log('Rebinding all risk popups...');
+    let boundCount = 0;
     drawnItems.eachLayer(function(layer) {
         // Xử lý tất cả các loại layer có thể phân tích risk
         if (layer instanceof L.Polygon || layer instanceof L.Rectangle || layer instanceof L.Circle) {
             bindRiskPopupToLayer(layer);
+            boundCount++;
         }
     });
+    console.log(`Bound events to ${boundCount} layers`);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -751,14 +801,14 @@ document.addEventListener('DOMContentLoaded', function() {
         applyConfigToMap();
     }
 
-        // Khi sửa textarea, cập nhật lại map
+            // Khi sửa textarea, cập nhật lại map
+    let importTimeout;
     document.getElementById('geojsonText').addEventListener('input', function() {
-        importGeoJSON(this.value);
-    });
-
-    // Thêm event listener cho blur để xử lý khi paste GeoJSON
-    document.getElementById('geojsonText').addEventListener('blur', function() {
-        importGeoJSON(this.value);
+        // Debounce để tránh import nhiều lần
+        clearTimeout(importTimeout);
+        importTimeout = setTimeout(() => {
+            importGeoJSON(this.value);
+        }, 300);
     });
 
     // Sự kiện show/hide hazard layer
