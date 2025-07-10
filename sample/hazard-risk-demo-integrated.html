@@ -677,13 +677,48 @@ function importGeoJSON(geojsonText) {
     try {
         const geojson = JSON.parse(geojsonText);
         drawnItems.clearLayers();
+
+        let firstLayer = null;
+
         L.geoJSON(geojson, {
             onEachFeature: function (feature, layer) {
                 drawnItems.addLayer(layer);
+                // Lưu layer đầu tiên để move map
+                if (!firstLayer) {
+                    firstLayer = layer;
+                }
             }
         });
+
         // Bind events cho các layer mới được import
         rebindAllRiskPopups();
+
+        // Tự động move map đến polygon đầu tiên nếu có
+        if (firstLayer && map) {
+            // Nếu là GeoJSON FeatureCollection, lấy feature đầu tiên
+            if (geojson.type === 'FeatureCollection' && geojson.features.length > 0) {
+                const firstFeature = geojson.features[0];
+                if (firstFeature.geometry && firstFeature.geometry.type === 'Polygon') {
+                    // Tính bounds của polygon đầu tiên
+                    const coordinates = firstFeature.geometry.coordinates[0];
+                    const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
+                    map.fitBounds(bounds, { padding: [20, 20] });
+                }
+            } else if (geojson.type === 'Feature' && geojson.geometry && geojson.geometry.type === 'Polygon') {
+                // Nếu là single Feature với Polygon
+                const coordinates = geojson.geometry.coordinates[0];
+                const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
+                map.fitBounds(bounds, { padding: [20, 20] });
+            } else if (geojson.type === 'Polygon') {
+                // Nếu là Polygon trực tiếp
+                const coordinates = geojson.coordinates[0];
+                const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
+                map.fitBounds(bounds, { padding: [20, 20] });
+            } else {
+                // Fallback: move đến layer đầu tiên
+                map.fitBounds(firstLayer.getBounds(), { padding: [20, 20] });
+            }
+        }
     } catch (e) {
         console.error('Error parsing GeoJSON:', e);
         // ignore parse error
