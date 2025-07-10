@@ -225,6 +225,102 @@
         .remove-color-btn:hover {
             background: #da190b;
         }
+
+        /* Demo Tab Styles */
+        .demo-controls {
+            padding: 15px;
+        }
+        .demo-controls h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .demo-controls p {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .demo-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .step-item.active {
+            background: #e3f2fd;
+            border-color: #2196F3;
+            color: #1976D2;
+        }
+        .step-item.completed {
+            background: #e8f5e8;
+            border-color: #4CAF50;
+            color: #2e7d32;
+        }
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ccc;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .step-item.active .step-number {
+            background: #2196F3;
+        }
+        .step-item.completed .step-number {
+            background: #4CAF50;
+        }
+        .step-text {
+            font-weight: 500;
+        }
+        .demo-controls-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .demo-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .demo-btn:hover {
+            background: #1976D2;
+        }
+        .demo-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .demo-info {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #2196F3;
+        }
+        .demo-info div {
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .demo-info div:last-child {
+            margin-bottom: 0;
+        }
+
         @media (max-width: 900px) {
             .side-panel { width: 100vw; position: absolute; z-index: 10; right: 0; top: 0; height: 60vh; }
             .container { flex-direction: column; }
@@ -241,6 +337,7 @@
         <div class="tabs">
             <button class="tab-btn active" id="tabGeoJsonBtn" onclick="showTab('geojson')">GeoJSON</button>
             <button class="tab-btn" id="tabConfigBtn" onclick="showTab('config')">Config</button>
+            <button class="tab-btn" id="tabDemoBtn" onclick="showTab('demo')">Algorithm Demo</button>
         </div>
         <div class="tab-content" id="tabGeoJson">
             <textarea id="geojsonText" class="geojson-textarea"></textarea>
@@ -293,6 +390,43 @@
                 </div>
             </div>
         </div>
+
+        <div class="tab-content" id="tabDemo" style="display:none;">
+            <div class="demo-controls">
+                <h3>Algorithm Demo</h3>
+                <p>Click on a polygon to start the algorithm visualization</p>
+
+                <div class="demo-steps">
+                    <div class="step-item" id="step1">
+                        <span class="step-number">1</span>
+                        <span class="step-text">Bounding Box</span>
+                    </div>
+                    <div class="step-item" id="step2">
+                        <span class="step-number">2</span>
+                        <span class="step-text">Grid Points</span>
+                    </div>
+                    <div class="step-item" id="step3">
+                        <span class="step-number">3</span>
+                        <span class="step-text">Filter Inside</span>
+                    </div>
+                    <div class="step-item" id="step4">
+                        <span class="step-number">4</span>
+                        <span class="step-text">Risk Analysis</span>
+                    </div>
+                </div>
+
+                <div class="demo-controls-buttons">
+                    <button type="button" class="demo-btn" onclick="startAlgorithmDemo()">Start Demo</button>
+                    <button type="button" class="demo-btn" onclick="resetAlgorithmDemo()">Reset</button>
+                    <button type="button" class="demo-btn" onclick="nextAlgorithmStep()">Next Step</button>
+                </div>
+
+                <div class="demo-info">
+                    <div id="demoDescription">Click "Start Demo" to begin the algorithm visualization</div>
+                    <div id="demoStats"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -303,8 +437,10 @@
 function showTab(tab) {
     document.getElementById('tabGeoJson').style.display = tab === 'geojson' ? '' : 'none';
     document.getElementById('tabConfig').style.display = tab === 'config' ? '' : 'none';
+    document.getElementById('tabDemo').style.display = tab === 'demo' ? '' : 'none';
     document.getElementById('tabGeoJsonBtn').classList.toggle('active', tab === 'geojson');
     document.getElementById('tabConfigBtn').classList.toggle('active', tab === 'config');
+    document.getElementById('tabDemoBtn').classList.toggle('active', tab === 'demo');
 }
 
 // --- Map & Draw logic ---
@@ -312,6 +448,16 @@ let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
 let hazardLayer = null;
 let isAnalyzing = false; // Prevent multiple API calls
 let isImporting = false; // Prevent multiple imports
+
+// --- Algorithm Demo Variables ---
+let demoLayers = {
+    boundingBox: null,
+    gridPoints: null,
+    filteredPoints: null,
+    riskPoints: null
+};
+let currentDemoStep = 0;
+let selectedPolygon = null;
 
 // --- Hazard Configuration ---
 let hazardConfig = {
@@ -412,6 +558,207 @@ function getHazardConfig() {
         levels: { ...hazardConfig.levels },
         waterColors: [...hazardConfig.waterColors]
     };
+}
+
+// --- Algorithm Demo Functions ---
+function startAlgorithmDemo() {
+    if (!selectedPolygon) {
+        alert('Please click on a polygon first to start the demo');
+        return;
+    }
+
+    resetAlgorithmDemo();
+    currentDemoStep = 1;
+    updateDemoStep();
+    showBoundingBox();
+}
+
+function resetAlgorithmDemo() {
+    // Remove all demo layers
+    Object.values(demoLayers).forEach(layer => {
+        if (layer) {
+            map.removeLayer(layer);
+        }
+    });
+    demoLayers = {
+        boundingBox: null,
+        gridPoints: null,
+        filteredPoints: null,
+        riskPoints: null
+    };
+
+    currentDemoStep = 0;
+    updateDemoStep();
+    document.getElementById('demoDescription').textContent = 'Click "Start Demo" to begin the algorithm visualization';
+    document.getElementById('demoStats').innerHTML = '';
+}
+
+function nextAlgorithmStep() {
+    if (currentDemoStep < 4) {
+        currentDemoStep++;
+        updateDemoStep();
+
+        switch (currentDemoStep) {
+            case 2:
+                showGridPoints();
+                break;
+            case 3:
+                showFilteredPoints();
+                break;
+            case 4:
+                showRiskAnalysis();
+                break;
+        }
+    }
+}
+
+function updateDemoStep() {
+    // Update step indicators
+    for (let i = 1; i <= 4; i++) {
+        const stepElement = document.getElementById(`step${i}`);
+        stepElement.classList.remove('active', 'completed');
+
+        if (i < currentDemoStep) {
+            stepElement.classList.add('completed');
+        } else if (i === currentDemoStep) {
+            stepElement.classList.add('active');
+        }
+    }
+}
+
+function showBoundingBox() {
+    if (!selectedPolygon) return;
+
+    const bounds = selectedPolygon.getBounds();
+    demoLayers.boundingBox = L.rectangle(bounds, {
+        color: '#ff4444',
+        weight: 3,
+        fillOpacity: 0.1,
+        fillColor: '#ff4444'
+    }).addTo(map);
+
+    document.getElementById('demoDescription').textContent = 'Step 1: Bounding Box - The algorithm first calculates the bounding box that contains the entire polygon area.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Bounding Box:</strong><br/>
+        North: ${bounds.getNorth().toFixed(6)}<br/>
+        South: ${bounds.getSouth().toFixed(6)}<br/>
+        East: ${bounds.getEast().toFixed(6)}<br/>
+        West: ${bounds.getWest().toFixed(6)}
+    `;
+}
+
+function showGridPoints() {
+    if (!selectedPolygon) return;
+
+    const bounds = selectedPolygon.getBounds();
+    const gridSize = parseInt(document.getElementById('gridSize').value);
+    const points = [];
+
+    // Create grid points
+    for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += gridSize / 111320) {
+        for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += gridSize / (111320 * Math.cos(lat * Math.PI / 180))) {
+            points.push([lat, lng]);
+        }
+    }
+
+    demoLayers.gridPoints = L.layerGroup(
+        points.map(point => L.circleMarker(point, {
+            radius: 3,
+            color: '#666',
+            fillColor: '#999',
+            fillOpacity: 0.7
+        }))
+    ).addTo(map);
+
+    document.getElementById('demoDescription').textContent = 'Step 2: Grid Points - Creates a uniform grid of points covering the entire bounding box area.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Grid Points:</strong><br/>
+        Total Points: ${points.length}<br/>
+        Grid Size: ${gridSize}m<br/>
+        Coverage: Entire bounding box
+    `;
+}
+
+function pointInPolygon(point, polygonLatLngs) {
+    // Chuyển về mảng [lng, lat]
+    const x = point.lng, y = point.lat;
+    let inside = false;
+    // polygonLatLngs có thể là mảng 2 chiều (đa polygon), hoặc 1 chiều (polygon đơn)
+    const rings = Array.isArray(polygonLatLngs[0]) ? polygonLatLngs : [polygonLatLngs];
+    for (let ring of rings) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const xi = ring[i].lng, yi = ring[i].lat;
+            const xj = ring[j].lng, yj = ring[j].lat;
+            const intersect = ((yi > y) !== (yj > y)) &&
+                (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-12) + xi);
+            if (intersect) inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function showFilteredPoints() {
+    if (!selectedPolygon || !demoLayers.gridPoints) return;
+
+    const polygonLatLngs = selectedPolygon.getLatLngs();
+    const filteredPoints = [];
+    const toRemove = [];
+    demoLayers.gridPoints.eachLayer(pointLayer => {
+        const point = pointLayer.getLatLng();
+        if (pointInPolygon(point, polygonLatLngs)) {
+            filteredPoints.push(point);
+            pointLayer.setStyle({
+                color: '#4CAF50',
+                fillColor: '#4CAF50',
+                fillOpacity: 0.8
+            });
+        } else {
+            toRemove.push(pointLayer);
+        }
+    });
+    toRemove.forEach(layer => demoLayers.gridPoints.removeLayer(layer));
+
+    document.getElementById('demoDescription').textContent = 'Step 3: Filter Inside - Removes points outside the polygon, keeping only points inside the area of interest.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Filtered Points:</strong><br/>
+        Inside Polygon: ${filteredPoints.length}<br/>
+        Outside Polygon: ${toRemove.length}<br/>
+        Total Grid Points: ${filteredPoints.length + toRemove.length}
+    `;
+}
+
+function showRiskAnalysis() {
+    if (!selectedPolygon) return;
+
+    document.getElementById('demoDescription').textContent = 'Step 4: Risk Analysis - Each remaining point is analyzed for risk level based on hazard map data. Colors represent different risk levels.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Risk Analysis:</strong><br/>
+        • Green: Low risk<br/>
+        • Yellow: Medium risk<br/>
+        • Orange: High risk<br/>
+        • Red: Very high risk<br/>
+        • Blue: Water areas (excluded)
+    `;
+
+    // Simulate risk analysis by coloring points
+    if (demoLayers.gridPoints) {
+        demoLayers.gridPoints.eachLayer(pointLayer => {
+            const point = pointLayer.getLatLng();
+            if (selectedPolygon.getBounds().contains(point)) {
+                // Simulate risk levels
+                const risk = Math.random();
+                if (risk < 0.3) {
+                    pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
+                } else if (risk < 0.6) {
+                    pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
+                } else if (risk < 0.8) {
+                    pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
+                } else {
+                    pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
+                }
+            }
+        });
+    }
 }
 
 // --- LocalStorage Management ---
@@ -549,6 +896,10 @@ function bindRiskPopupToLayer(layer) {
     layer.off('click');
     layer.on('click', async function(e) {
         console.log('Layer clicked!', layer);
+
+        // Save selected polygon for demo
+        selectedPolygon = layer;
+
         // Prevent multiple API calls
         if (isAnalyzing) {
             console.log('Analysis already in progress, skipping...');
@@ -801,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', function() {
         applyConfigToMap();
     }
 
-            // Khi sửa textarea, cập nhật lại map
+    // Khi sửa textarea, cập nhật lại map
     let importTimeout;
     document.getElementById('geojsonText').addEventListener('input', function() {
         // Debounce để tránh import nhiều lần
