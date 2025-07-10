@@ -53,7 +53,8 @@ export async function fetchTile(url: string, cache?: TileCache, coords?: { z: nu
     // Handle 404 case specifically (tile doesn't exist)
     if (error.response?.status === 404) {
       console.warn(`Tile not found (404): ${url} - Treating as no risk`);
-      throw new Error(`TILE_NOT_FOUND: ${url}`);
+      // Return empty buffer instead of throwing error
+      return Buffer.alloc(0);
     }
 
     // Handle timeout
@@ -86,10 +87,10 @@ export class NodeRasterReader implements RasterReader {
     try {
       const tileBuffer = await this.tileProvider(tile.z, tile.x, tile.y);
 
-      // Check if buffer is valid
+      // Check if buffer is valid or empty (tile not found)
       if (!tileBuffer || tileBuffer.length === 0) {
-        console.warn(`Empty tile buffer for tile ${tile.z}/${tile.x}/${tile.y}`);
-        return { r: 0, g: 0, b: 0 }; // Return level 0 color instead of black
+        console.warn(`Empty tile buffer for tile ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
+        return { r: 0, g: 0, b: 0 }; // Return level 0 color (no risk)
       }
 
       // Use pngjs to read PNG
@@ -120,14 +121,8 @@ export class NodeRasterReader implements RasterReader {
         }
       });
     } catch (error: any) {
-      // Handle tile not found case specifically
-      if (error.message?.includes('TILE_NOT_FOUND')) {
-        console.warn(`Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
-        return { r: 0, g: 0, b: 0 }; // Return level 0 color instead of black
-      }
-
       console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
-      // Fallback: return level 0 color
+      // Fallback: return level 0 color (no risk)
       return { r: 0, g: 0, b: 0 };
     }
   }

@@ -98,18 +98,7 @@ async function main() {
     // Đo thời gian bắt đầu
     const start = Date.now();
     // Phân tích rủi ro với cache
-    const result = await analyzeRiskInPolygon({
-      polygon: polygon.geometry,
-      hazardTileUrl: TILE_URL, // Hazard tile (GSI Japan)
-      baseTileUrl: BASE_TILE_URL, // Base tile (GSI Japan)
-      gridSize: GRID_SIZE, // 5 mét
-      zoom: ZOOM,
-      hazardConfig: hazardConfig,
-      currentLocation: {
-        lat: center.geometry.coordinates[1],
-        lon: center.geometry.coordinates[0]
-      }
-    }, tileCache);
+    const result = await analyzeRiskInPolygon({"polygon":{"type":"Polygon","coordinates":[[[140.213013,35.930205],[140.340729,35.762115],[140.690918,35.806677],[140.638733,35.946883],[140.213013,35.930205]]]},"hazardTileUrl":"https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png","baseTileUrl":"https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png","gridSize":100,"zoom":14,"hazardConfig":{"name":"Tsunami Depth (GSI Japan)","levels":{"0":{"name":"level0","color":"#FFFFFF","description":"0m"},"1":{"name":"level1","color":"#FFFFB3","description":"<0.3m"},"2":{"name":"level2","color":"#F7F5A9","description":"<0.5m"},"3":{"name":"level3","color":"#F8E1A6","description":"0.5~1m"},"4":{"name":"level4","color":"#FFD8C0","description":"0.5~3m"},"5":{"name":"level5","color":"#FFB7B7","description":"3~5m"},"6":{"name":"level6","color":"#FF9191","description":"5~10m"},"7":{"name":"level7","color":"#F285C9","description":"10~20m"},"8":{"name":"level8","color":"#DC7ADC","description":">20m"}},"waterColors":["#bed2ff","#932525"]},"currentLocation":{"lat":35.8411948281412,"lon":140.48492431640628}}, tileCache);
 
 
     // Đo thời gian kết thúc

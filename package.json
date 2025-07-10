@@ -1,6 +1,6 @@
 {
   "name": "@sk-global/hazard-risk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A TypeScript library for analyzing hazard risks and calculating risk assessments",
   "keywords": [
     "hazard",
@@ -30,7 +30,7 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "dev": "ts-node example.ts",
+    "dev": "ts-node --project tsconfig.dev.json example.ts",
     "build:types": "tsc --emitDeclarationOnly",
     "build": "microbundle --target node --format modern,cjs,umd --no-sourcemap",
     "watch": "microbundle watch --target node --format modern,cjs,umd --no-sourcemap",
