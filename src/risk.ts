@@ -112,47 +112,6 @@ export function isWaterColor(
   return waterColors.includes(hexColor);
 }
 
-// Calculate result statistics with dynamic levels
-export function calculateRiskStats(grid: GridPoint[], hazardConfig?: HazardConfig): RiskStat[] {
-  const stats: { [key: string]: number } = {
-    'water': 0
-  };
-
-  let total = 0;
-
-  // Count points by level
-  for (const point of grid) {
-    if (point.isWater) {
-      stats.water++;
-    } else if (point.riskLevel !== undefined) {
-      const levelKey = point.riskLevel.toString();
-      stats[levelKey] = (stats[levelKey] || 0) + 1;
-    }
-    total++;
-  }
-
-  // Convert to RiskStat array
-  const result: RiskStat[] = [];
-  for (const [level, count] of Object.entries(stats)) {
-    if (count > 0) {
-      result.push({
-        level: level === 'water' ? 'water' : parseInt(level),
-        count,
-        ratio: total > 0 ? (count / total) * 100 : 0
-      });
-    }
-  }
-
-  // Sort by level (water at the end)
-  result.sort((a, b) => {
-    if (a.level === 'water') return 1;
-    if (b.level === 'water') return -1;
-    return (a.level as number) - (b.level as number);
-  });
-
-  return result;
-}
-
 // Create hazard config for different hazard types
 export function createHazardConfig(
   name: string,

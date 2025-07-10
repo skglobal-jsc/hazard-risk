@@ -1,8 +1,8 @@
 import { createGrid } from './grid';
-import { classifyRiskFromRGB, calculateRiskStats, isWaterColor, DEFAULT_TSUNAMI_CONFIG } from './risk';
+import { classifyRiskFromRGB, isWaterColor } from './risk';
 import { createBrowserTileProvider, createTileProvider } from './raster';
 import { TileCache } from './cache';
-import type { AnalyzeRiskOptions, AnalyzeRiskResult, GridPoint, HazardConfig } from './types';
+import type { AnalyzeRiskOptions, GridPoint, HazardConfig } from './types';
 import { PNG, PNGWithMetadata } from 'pngjs';
 import type { Feature, Point } from 'geojson';
 import { point, featureCollection } from '@turf/helpers';

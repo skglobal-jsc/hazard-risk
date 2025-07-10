@@ -1,5 +1,4 @@
 import { analyzeRiskInPolygon } from './src/index';
-import { createHazardConfig, classifyRiskFromRGB, DEFAULT_TSUNAMI_CONFIG } from './src/risk';
 import { TileCache } from './src/cache';
 import { HazardConfig } from './src/types';
 import { point } from '@turf/helpers';
