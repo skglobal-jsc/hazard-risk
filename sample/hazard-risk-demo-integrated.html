@@ -671,6 +671,25 @@ function bindRiskPopupToLayer(layer) {
     });
 }
 
+// Hàm xử lý import GeoJSON
+function importGeoJSON(geojsonText) {
+    if (ignoreGeoJsonChange) return;
+    try {
+        const geojson = JSON.parse(geojsonText);
+        drawnItems.clearLayers();
+        L.geoJSON(geojson, {
+            onEachFeature: function (feature, layer) {
+                drawnItems.addLayer(layer);
+            }
+        });
+        // Bind events cho các layer mới được import
+        rebindAllRiskPopups();
+    } catch (e) {
+        console.error('Error parsing GeoJSON:', e);
+        // ignore parse error
+    }
+}
+
 // Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
 function rebindAllRiskPopups() {
     drawnItems.eachLayer(function(layer) {
@@ -697,18 +716,14 @@ document.addEventListener('DOMContentLoaded', function() {
         applyConfigToMap();
     }
 
-    // Khi sửa textarea, cập nhật lại map
+        // Khi sửa textarea, cập nhật lại map
     document.getElementById('geojsonText').addEventListener('input', function() {
-        if (ignoreGeoJsonChange) return;
-        try {
-            const geojson = JSON.parse(this.value);
-            drawnItems.clearLayers();
-            L.geoJSON(geojson, {
-                onEachFeature: function (feature, layer) {
-                    drawnItems.addLayer(layer);
-                }
-            });
-        } catch (e) { /* ignore parse error */ }
+        importGeoJSON(this.value);
+    });
+
+    // Thêm event listener cho blur để xử lý khi paste GeoJSON
+    document.getElementById('geojsonText').addEventListener('blur', function() {
+        importGeoJSON(this.value);
     });
 
     // Sự kiện show/hide hazard layer
