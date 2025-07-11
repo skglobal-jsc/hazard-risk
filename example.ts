@@ -4,13 +4,14 @@ import { HazardConfig } from './src/types';
 import { point } from '@turf/helpers';
 import circle from '@turf/circle';
 
-
 const RADIUS = 3000;
 const GRID_SIZE = 80;
 const ZOOM = 12;
 
-const TILE_URL = 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
-const BASE_TILE_URL = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
+const TILE_URL =
+  'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
+const BASE_TILE_URL =
+  'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
 
 async function main() {
   console.log('🚀 Bắt đầu phân tích rủi ro...\n');
@@ -30,48 +31,48 @@ async function main() {
       0: {
         name: 'level0',
         color: '#FFFFFF',
-        description: '0m'
+        description: '0m',
       },
       1: {
         name: 'level1',
         color: '#FFFFB3',
-        description: '<0.3m'
+        description: '<0.3m',
       },
       2: {
         name: 'level2',
         color: '#F7F5A9',
-        description: '<0.5m'
+        description: '<0.5m',
       },
       3: {
         name: 'level3',
         color: '#F8E1A6',
-        description: '0.5~1m'
+        description: '0.5~1m',
       },
       4: {
         name: 'level4',
         color: '#FFD8C0',
-        description: '0.5~3m'
+        description: '0.5~3m',
       },
       5: {
         name: 'level5',
         color: '#FFB7B7',
-        description: '3~5m'
+        description: '3~5m',
       },
       6: {
         name: 'level6',
         color: '#FF9191',
-        description: '5~10m'
+        description: '5~10m',
       },
       7: {
         name: 'level7',
         color: '#F285C9',
-        description: '10~20m'
+        description: '10~20m',
       },
       8: {
         name: 'level8',
         color: '#DC7ADC',
-        description: '>20m'
-      }
+        description: '>20m',
+      },
     },
     waterColors: ['#bed2ff', '#f7f5a9', '#8bb8ff', '#6aa8ff'],
   };
@@ -86,7 +87,9 @@ async function main() {
   console.log('   Risk Levels:');
   for (const [level, config] of Object.entries(hazardConfig.levels)) {
     const colorType = config.color.startsWith('#') ? 'HEX' : 'RGB';
-    console.log(`     Level ${level}: ${config.name} - ${config.description} (${config.color} - ${colorType})`);
+    console.log(
+      `     Level ${level}: ${config.name} - ${config.description} (${config.color} - ${colorType})`
+    );
   }
   console.log(`   Màu nước: ${hazardConfig.waterColors?.join(', ')}\n`);
 
@@ -98,8 +101,18 @@ async function main() {
     // Đo thời gian bắt đầu
     const start = Date.now();
     // Phân tích rủi ro với cache
-    const result = await analyzeRiskInPolygon({"polygon":{"type":"Polygon","coordinates":[[[140.213013,35.930205],[140.340729,35.762115],[140.690918,35.806677],[140.638733,35.946883],[140.213013,35.930205]]]},"hazardTileUrl":"https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png","baseTileUrl":"https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png","gridSize":100,"zoom":14,"hazardConfig":{"name":"Tsunami Depth (GSI Japan)","levels":{"0":{"name":"level0","color":"#FFFFFF","description":"0m"},"1":{"name":"level1","color":"#FFFFB3","description":"<0.3m"},"2":{"name":"level2","color":"#F7F5A9","description":"<0.5m"},"3":{"name":"level3","color":"#F8E1A6","description":"0.5~1m"},"4":{"name":"level4","color":"#FFD8C0","description":"0.5~3m"},"5":{"name":"level5","color":"#FFB7B7","description":"3~5m"},"6":{"name":"level6","color":"#FF9191","description":"5~10m"},"7":{"name":"level7","color":"#F285C9","description":"10~20m"},"8":{"name":"level8","color":"#DC7ADC","description":">20m"}},"waterColors":["#bed2ff","#932525"]},"currentLocation":{"lat":35.8411948281412,"lon":140.48492431640628}}, tileCache);
-
+    const result = await analyzeRiskInPolygon(
+      {
+        polygon: polygon.geometry,
+        hazardTileUrl: TILE_URL,
+        baseTileUrl: BASE_TILE_URL,
+        gridSize: GRID_SIZE,
+        zoom: ZOOM,
+        hazardConfig: hazardConfig,
+        currentLocation: { lat: center.geometry.coordinates[1], lon: center.geometry.coordinates[0] },
+      },
+      tileCache
+    );
 
     // Đo thời gian kết thúc
     const end = Date.now();
@@ -118,7 +131,9 @@ async function main() {
       if (level === 'total') continue;
       const levelConfig = result.hazardConfig.levels[level];
       const colorType = levelConfig?.color?.startsWith('#') ? 'HEX' : 'RGB';
-      console.log(`   Level ${level} (${levelConfig?.name || ''}): ${result.stats[level]} điểm`);
+      console.log(
+        `   Level ${level} (${levelConfig?.name || ''}): ${result.stats[level]} điểm`
+      );
       if (levelConfig) {
         console.log(`     Mô tả: ${levelConfig.description}`);
         console.log(`     Màu: ${levelConfig.color} (${colorType})`);
@@ -126,14 +141,15 @@ async function main() {
       // In nearest point nếu có
       if (result.nearestPoints && result.nearestPoints[level]) {
         const np = result.nearestPoints[level];
-        console.log(`     Gần nhất: (${np.latitude}, ${np.longitude}), cách tâm ${np.distance} độ`);
+        console.log(
+          `     Gần nhất: (${np.latitude}, ${np.longitude}), cách tâm ${np.distance} độ`
+        );
       }
     }
 
     console.log('\n✅ Phân tích hoàn thành!');
 
     console.log('\n' + '='.repeat(50));
-
   } catch (error) {
     console.error('❌ Lỗi:', error);
   }

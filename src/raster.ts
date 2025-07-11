@@ -60,10 +60,12 @@ export async function fetchTile(url: string, cache?: TileCache, coords?: { z: nu
     // Handle timeout
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       console.warn(`Timeout fetching tile: ${url}`);
-      throw new Error(`TIMEOUT: ${url}`);
+      // throw new Error(`TIMEOUT: ${url}`);
+      return Buffer.alloc(0);
     }
 
-    throw new Error(`Failed to fetch tile ${url}: ${error.message}`);
+    // throw new Error(`Failed to fetch tile ${url}: ${error.message}`);
+    return Buffer.alloc(0);
   }
 }
 

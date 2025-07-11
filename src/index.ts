@@ -3,14 +3,14 @@ import { classifyRiskFromRGB, isWaterColor } from './risk';
 import { createBrowserTileProvider, createTileProvider } from './raster';
 import { TileCache } from './cache';
 import type { AnalyzeRiskOptions, GridPoint, HazardConfig } from './types';
-import { PNG, PNGWithMetadata } from 'pngjs';
 import type { Feature, Point } from 'geojson';
 import { point, featureCollection } from '@turf/helpers';
 import nearestPoint from '@turf/nearest-point';
+import { getPixelFromPNG, readPNGFromBuffer } from './utils';
 
 
 // Preload all hazard and base tiles in parallel
-async function preloadTiles(tileCoords: { z: number, x: number, y: number }[], hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>, baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>) {
+async function preloadRiskTiles(tileCoords: { z: number, x: number, y: number }[], hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>, baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>) {
   await Promise.all([
     ...tileCoords.map(coord => hazardTileProvider(coord.z, coord.x, coord.y)),
     ...tileCoords.map(coord => baseTileProvider(coord.z, coord.x, coord.y))
@@ -28,24 +28,18 @@ function groupPointsByTile(grid: GridPoint[]) {
   return tilePointMap;
 }
 
-function getPixelFromPng(png: PNGWithMetadata | undefined, x: number, y: number): [number, number, number] {
-  if (!png) return [0, 0, 0];
-  const { width, height, data } = png;
-  if (x < 0 || x >= width || y < 0 || y >= height) return [0, 0, 0];
-  const idx = (y * width + x) * 4;
-  return [data[idx] || 0, data[idx + 1] || 0, data[idx + 2] || 0];
-}
+
 
 function getRiskInfoFromTile(
-  hazardPng: PNGWithMetadata | undefined,
-  basePng: PNGWithMetadata | undefined,
+  hazardPng: any | undefined,
+  basePng: any | undefined,
   px: number,
   py: number,
   hazardConfig: HazardConfig | undefined
 ) {
-  const [r, g, b] = getPixelFromPng(hazardPng, px, py);
+  const [r, g, b] = getPixelFromPNG(hazardPng, px, py);
   const riskLevel = classifyRiskFromRGB(r, g, b, hazardConfig);
-  const [br, bg, bb] = getPixelFromPng(basePng, px, py);
+  const [br, bg, bb] = getPixelFromPNG(basePng, px, py);
   const isWater = isWaterColor(br, bg, bb, hazardConfig);
   return { riskLevel, isWater };
 }
@@ -73,9 +67,9 @@ async function calculateStatsAndOptionallyNearestPoints(
     const samplePoint = grid.find(pt => Math.abs(pt.lat - currentLocation.lat) < 1e-6 && Math.abs(pt.lon - currentLocation.lon) < 1e-6);
     if (samplePoint) {
       const { z, x, y } = samplePoint.tile;
-      let hazardPng: PNGWithMetadata | undefined, basePng: PNGWithMetadata | undefined;
-      try { hazardPng = PNG.sync.read(await hazardTileProvider(z, x, y)); } catch {}
-      try { basePng = PNG.sync.read(await baseTileProvider(z, x, y)); } catch {}
+      let hazardPng: any | undefined, basePng: any | undefined;
+      try { hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y)); } catch {}
+      try { basePng = readPNGFromBuffer(await baseTileProvider(z, x, y)); } catch {}
       const { riskLevel, isWater } = getRiskInfoFromTile(hazardPng, basePng, samplePoint.pixel.x, samplePoint.pixel.y, hazardConfig);
       currentLocationRisk = { riskLevel, isWater };
     }
@@ -83,9 +77,9 @@ async function calculateStatsAndOptionallyNearestPoints(
 
   await Promise.all(Array.from(tilePointMap.entries()).map(async ([key, points]) => {
     const { z, x, y } = points[0].tile;
-    let hazardPng: PNGWithMetadata | undefined, basePng: PNGWithMetadata | undefined;
-    try { hazardPng = PNG.sync.read(await hazardTileProvider(z, x, y)); } catch {}
-    try { basePng = PNG.sync.read(await baseTileProvider(z, x, y)); } catch {}
+    let hazardPng: any | undefined, basePng: any | undefined;
+    try { hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y)); } catch {}
+    try { basePng = readPNGFromBuffer(await baseTileProvider(z, x, y)); } catch {}
     for (const p of points) {
       const { riskLevel, isWater } = getRiskInfoFromTile(hazardPng, basePng, p.pixel.x, p.pixel.y, hazardConfig);
       if (isWater) {
@@ -152,7 +146,7 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
     const [z, x, y] = key.split('/').map(Number);
     return { z, x, y };
   });
-  await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
+  await preloadRiskTiles(tileCoords, hazardTileProvider, baseTileProvider);
 
   return await calculateStatsAndOptionallyNearestPoints(
     grid,
@@ -220,3 +214,22 @@ export { NodeRasterReader } from './raster';
 export { BrowserRasterReader, createBrowserTileProvider } from './raster';
 export { TileCache } from './cache';
 export { DEFAULT_TSUNAMI_CONFIG, createHazardConfig } from './risk';
+export {
+  getElevationFromDEM,
+  getElevationFromDEMBrowser,
+  DEFAULT_DEM_CONFIGS,
+  type GetElevationOptions,
+  type ElevationResult,
+  type DEMConfig
+} from './dem';
+
+// Export utility functions
+export {
+  latLngToTile,
+  calculateElevationFromRGB,
+  getPixelFromPNG,
+  getPixelFromImageBitmap,
+  preloadTiles,
+  createDEMUrlList,
+  readPNGFromBuffer
+} from './utils';

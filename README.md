@@ -16,6 +16,7 @@ A TypeScript library for analyzing disaster risk in any polygon area based on ti
 - ✅ Concurrent tile preloading
 - ✅ Nearest point detection
 - ✅ Current location risk assessment
+- ✅ DEM elevation data extraction
 
 ## Installation
 
@@ -187,6 +188,65 @@ Create custom hazard configuration.
 - `name`: Hazard name
 - `levels`: Risk level configuration object
 - `waterColors?`: Array of water color hex codes
+
+### `getElevationFromDEM(options)`
+
+Get elevation data from DEM tiles for Node.js environment.
+
+**Parameters:**
+- `options.lat`: Latitude
+- `options.lng`: Longitude
+- `options.zoom?`: Zoom level (default: 17)
+- `options.demConfigs?`: Custom DEM configurations
+- `options.cache?`: Optional TileCache instance
+
+**Returns:**
+```typescript
+{
+  elevation: number | null,
+  source: string,
+  fixed: number,
+  position: { lat: number, lng: number, zoom: number }
+}
+```
+
+### `getElevationFromDEMBrowser(options)`
+
+Get elevation data from DEM tiles for browser environment.
+
+**Parameters:** Same as `getElevationFromDEM` except no cache parameter.
+
+## DEM Elevation Data
+
+The library supports extracting elevation data from DEM (Digital Elevation Model) tiles. Default configurations support GSI Japan DEM services:
+
+| DEM Type | Zoom Level | Precision | Description |
+|----------|------------|-----------|-------------|
+| DEM1A | 17 | 0.1m | Highest precision |
+| DEM5A | 15 | 0.1m | High precision |
+| DEM5B | 15 | 0.1m | High precision |
+| DEM5C | 15 | 0.1m | High precision |
+| DEM10B | 14 | 1m | Standard precision |
+
+### Example Usage
+
+```typescript
+import { getElevationFromDEM } from '@sk-global/hazard-risk';
+
+// Get elevation for Tokyo
+const result = await getElevationFromDEM({
+  lat: 35.6762,
+  lng: 139.6503,
+  zoom: 17
+});
+
+if (result.elevation !== null) {
+  console.log(`Elevation: ${result.elevation.toFixed(result.fixed)}m`);
+  console.log(`Source: ${result.source}`);
+} else {
+  console.log('No elevation data found');
+}
+```
 
 ## Risk Classification
 

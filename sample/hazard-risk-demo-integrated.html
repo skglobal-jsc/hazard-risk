@@ -742,8 +742,7 @@ function showRiskAnalysis() {
         • Green: Low risk<br/>
         • Yellow: Medium risk<br/>
         • Orange: High risk<br/>
-        • Red: Very high risk<br/>
-        • Blue: Water areas (excluded)
+        • Red: Very high risk
     `;
 
     // Simulate risk analysis by coloring points
@@ -1019,6 +1018,20 @@ function bindRiskPopupToLayer(layer) {
                 Object.entries(result.data.nearestPoints).forEach(([level, point]) => {
                     html += `Level ${level}: ${point.distance.toFixed(1)}m away<br/>`;
                 });
+            }
+
+            // Thêm thông tin độ cao nếu có
+            if (result.data.elevation) {
+                const elev = result.data.elevation;
+                html += `<br/><b>Elevation:</b><br/>`;
+                html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                html += `Source: ${elev.source || ''}<br/>`;
+                if (elev.position) {
+                    html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+                    if (elev.position.zoom !== undefined) {
+                        html += `Zoom: ${elev.position.zoom}<br/>`;
+                    }
+                }
             }
 
             layer.setPopupContent(html);
