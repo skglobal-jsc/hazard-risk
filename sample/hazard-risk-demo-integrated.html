@@ -766,32 +766,40 @@ function showRiskAnalysis() {
     }
 
     // Thêm thông tin độ cao DEM nếu có
-    if (result.data.demElevation) {
+    if ('demElevation' in result.data) {
         const elev = result.data.demElevation;
         html += `<br/><b>DEM Elevation:</b><br/>`;
-        html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-        html += `Source: ${elev.source || ''}<br/>`;
-        if (elev.position) {
-            html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
-            if (elev.position.zoom !== undefined) {
-                html += `Zoom: ${elev.position.zoom}<br/>`;
+        if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+            html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+            html += `Source: ${elev.source || ''}<br/>`;
+            if (elev.position) {
+                html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+                if (elev.position.zoom !== undefined) {
+                    html += `Zoom: ${elev.position.zoom}<br/>`;
+                }
             }
-        }
-        if (elev.time !== undefined) {
-            html += `Time: ${elev.time}ms<br/>`;
+            if (elev.time !== undefined) {
+                html += `Time: ${elev.time}ms<br/>`;
+            }
+        } else {
+            html += `<span style="color:#f44336">Could not load</span><br/>`;
         }
     }
 
     // Thêm thông tin độ cao GSI nếu có
-    if (result.data.gsiElevation) {
+    if ('gsiElevation' in result.data) {
         const elev = result.data.gsiElevation;
         html += `<br/><b>GSI Elevation:</b><br/>`;
-        html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-        if (elev.latitude !== undefined && elev.longitude !== undefined) {
-            html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
-        }
-        if (elev.time !== undefined) {
-            html += `Time: ${elev.time}ms<br/>`;
+        if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+            html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+            if (elev.latitude !== undefined && elev.longitude !== undefined) {
+                html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
+            }
+            if (elev.time !== undefined) {
+                html += `Time: ${elev.time}ms<br/>`;
+            }
+        } else {
+            html += `<span style="color:#f44336">Could not load</span><br/>`;
         }
     }
 
@@ -1053,32 +1061,40 @@ function bindRiskPopupToLayer(layer) {
             }
 
             // Thêm thông tin độ cao DEM nếu có
-            if (result.data.demElevation) {
+            if ('demElevation' in result.data) {
                 const elev = result.data.demElevation;
                 html += `<br/><b>DEM Elevation:</b><br/>`;
-                html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-                html += `Source: ${elev.source || ''}<br/>`;
-                if (elev.position) {
-                    html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
-                    if (elev.position.zoom !== undefined) {
-                        html += `Zoom: ${elev.position.zoom}<br/>`;
+                if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+                    html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                    html += `Source: ${elev.source || ''}<br/>`;
+                    if (elev.position) {
+                        html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+                        if (elev.position.zoom !== undefined) {
+                            html += `Zoom: ${elev.position.zoom}<br/>`;
+                        }
                     }
-                }
-                if (elev.time !== undefined) {
-                    html += `Time: ${elev.time}ms<br/>`;
+                    if (elev.time !== undefined) {
+                        html += `Time: ${elev.time}ms<br/>`;
+                    }
+                } else {
+                    html += `<span style="color:#f44336">Could not load</span><br/>`;
                 }
             }
 
             // Thêm thông tin độ cao GSI nếu có
-            if (result.data.gsiElevation) {
+            if ('gsiElevation' in result.data) {
                 const elev = result.data.gsiElevation;
                 html += `<br/><b>GSI Elevation:</b><br/>`;
-                html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-                if (elev.latitude !== undefined && elev.longitude !== undefined) {
-                    html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
-                }
-                if (elev.time !== undefined) {
-                    html += `Time: ${elev.time}ms<br/>`;
+                if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+                    html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                    if (elev.latitude !== undefined && elev.longitude !== undefined) {
+                        html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
+                    }
+                    if (elev.time !== undefined) {
+                        html += `Time: ${elev.time}ms<br/>`;
+                    }
+                } else {
+                    html += `<span style="color:#f44336">Could not load</span><br/>`;
                 }
             }
 
