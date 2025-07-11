@@ -5,8 +5,8 @@ async function exampleNodeJS() {
   try {
     // Get elevation for Tokyo (35.6762, 139.6503)
     const result = await getElevationFromDEM({
-      lat: 35.70612116018186,
-      lng: 139.70410774078337,
+      lat: 36.682158333460485,
+      lng: 137.29295833375718,
       zoom: 17
     });
     console.log(" DEM result: ", result);

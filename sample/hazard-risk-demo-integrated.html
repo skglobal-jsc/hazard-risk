@@ -764,6 +764,38 @@ function showRiskAnalysis() {
             }
         });
     }
+
+    // Thêm thông tin độ cao DEM nếu có
+    if (result.data.demElevation) {
+        const elev = result.data.demElevation;
+        html += `<br/><b>DEM Elevation:</b><br/>`;
+        html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+        html += `Source: ${elev.source || ''}<br/>`;
+        if (elev.position) {
+            html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+            if (elev.position.zoom !== undefined) {
+                html += `Zoom: ${elev.position.zoom}<br/>`;
+            }
+        }
+        if (elev.time !== undefined) {
+            html += `Time: ${elev.time}ms<br/>`;
+        }
+    }
+
+    // Thêm thông tin độ cao GSI nếu có
+    if (result.data.gsiElevation) {
+        const elev = result.data.gsiElevation;
+        html += `<br/><b>GSI Elevation:</b><br/>`;
+        html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+        if (elev.latitude !== undefined && elev.longitude !== undefined) {
+            html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
+        }
+        if (elev.time !== undefined) {
+            html += `Time: ${elev.time}ms<br/>`;
+        }
+    }
+
+    layer.setPopupContent(html);
 }
 
 // --- LocalStorage Management ---
@@ -1020,10 +1052,10 @@ function bindRiskPopupToLayer(layer) {
                 });
             }
 
-            // Thêm thông tin độ cao nếu có
-            if (result.data.elevation) {
-                const elev = result.data.elevation;
-                html += `<br/><b>Elevation:</b><br/>`;
+            // Thêm thông tin độ cao DEM nếu có
+            if (result.data.demElevation) {
+                const elev = result.data.demElevation;
+                html += `<br/><b>DEM Elevation:</b><br/>`;
                 html += `Elevation: <b>${elev.elevation}m</b><br/>`;
                 html += `Source: ${elev.source || ''}<br/>`;
                 if (elev.position) {
@@ -1031,6 +1063,22 @@ function bindRiskPopupToLayer(layer) {
                     if (elev.position.zoom !== undefined) {
                         html += `Zoom: ${elev.position.zoom}<br/>`;
                     }
+                }
+                if (elev.time !== undefined) {
+                    html += `Time: ${elev.time}ms<br/>`;
+                }
+            }
+
+            // Thêm thông tin độ cao GSI nếu có
+            if (result.data.gsiElevation) {
+                const elev = result.data.gsiElevation;
+                html += `<br/><b>GSI Elevation:</b><br/>`;
+                html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                if (elev.latitude !== undefined && elev.longitude !== undefined) {
+                    html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
+                }
+                if (elev.time !== undefined) {
+                    html += `Time: ${elev.time}ms<br/>`;
                 }
             }
 
