@@ -128,9 +128,13 @@ export async function getElevationFromDEM(options: GetElevationOptions): Promise
       const [r, g, b] = getPixelFromPNG(png, pixel.x, pixel.y);
 
       // Calculate elevation
-      const elevation = calculateElevationFromRGB(r, g, b);
+      let elevation = calculateElevationFromRGB(r, g, b);
 
       if (elevation !== null) {
+        // round elevation to 1 decimal place
+        // example: 123.456789 -> 123.5
+        // 21.490000000000002 -> 21.5
+        elevation = Math.round(elevation * 10) / 10;
         return {
           elevation,
           source: demConfig.title,
