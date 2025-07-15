@@ -1060,6 +1060,24 @@ function bindRiskPopupToLayer(layer) {
                 });
             }
 
+            // Thêm thông tin về rủi ro tại vị trí hiện tại
+            if (result.data.currentLocationRisk) {
+                const currentRisk = result.data.currentLocationRisk;
+                const riskLevel = currentRisk.riskLevel;
+                const isWater = currentRisk.isWater;
+
+                html += '<br/><b>Current Location Risk:</b><br/>';
+                html += `Risk Level: <b>${riskLevel}</b><br/>`;
+
+                // Hiển thị thông tin chi tiết về level nếu có trong hazardConfig
+                if (result.data.hazardConfig && result.data.hazardConfig.levels && result.data.hazardConfig.levels[riskLevel]) {
+                    const levelInfo = result.data.hazardConfig.levels[riskLevel];
+                    html += `Level Name: <b>${levelInfo.name}</b><br/>`;
+                    html += `Description: <b>${levelInfo.description}</b><br/>`;
+                    html += `Color: <span style="background-color: ${levelInfo.color}; padding: 2px 6px; border-radius: 3px; color: ${levelInfo.color === '#FFFFFF' ? '#000' : '#fff'}">${levelInfo.color}</span><br/>`;
+                }
+            }
+
             // Thêm thông tin độ cao DEM nếu có
             if ('demElevation' in result.data) {
                 const elev = result.data.demElevation;
