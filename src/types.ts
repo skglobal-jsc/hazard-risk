@@ -38,7 +38,7 @@ export interface GridPoint {
 export interface AnalyzeRiskOptions {
   polygon: GeoJSONPolygon;
   hazardTileUrl: string; // URL template for hazard tile
-  baseTileUrl: string;   // URL template for base tile
+  baseTileUrl: string; // URL template for base tile
   gridSize: number; // meters
   zoom: number;
   hazardConfig?: HazardConfig; // Hazard configuration

@@ -21,7 +21,10 @@ export class TileCache {
   private ttl: number;
   private timestamps = new Map<string, number>();
 
-  constructor(maxSize: number = 100 * 1024 * 1024, ttl: number = 5 * 60 * 1000) {
+  constructor(
+    maxSize: number = 100 * 1024 * 1024,
+    ttl: number = 5 * 60 * 1000
+  ) {
     this.maxSize = maxSize;
     this.ttl = ttl;
   }
@@ -56,7 +59,10 @@ export class TileCache {
     const key = this.createKey(z, x, y, url);
 
     // Check cache size
-    if (this.cache.size > 0 && this.getCacheSize() + data.length > this.maxSize) {
+    if (
+      this.cache.size > 0 &&
+      this.getCacheSize() + data.length > this.maxSize
+    ) {
       this.evictOldest();
     }
 
@@ -89,11 +95,15 @@ export class TileCache {
     // Preload with concurrency limit to avoid overwhelming server
     const concurrencyLimit = 5;
     const tiles = Array.from(uniqueTiles);
-    const results: PromiseSettledResult<{ success: boolean; tile: string; error?: string }>[] = [];
+    const results: PromiseSettledResult<{
+      success: boolean;
+      tile: string;
+      error?: string;
+    }>[] = [];
 
     for (let i = 0; i < tiles.length; i += concurrencyLimit) {
       const batch = tiles.slice(i, i + concurrencyLimit);
-      const batchPromises = batch.map(async (tileKey) => {
+      const batchPromises = batch.map(async tileKey => {
         const [coordPart, url] = tileKey.split('|');
         const [z, x, y] = coordPart.split('/').map(Number);
 
@@ -120,10 +130,14 @@ export class TileCache {
       }
     }
 
-    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const successCount = results.filter(
+      r => r.status === 'fulfilled' && r.value.success
+    ).length;
     const failCount = results.length - successCount;
 
-    console.log(`✅ Preload completed: ${successCount} success, ${failCount} failed`);
+    console.log(
+      `✅ Preload completed: ${successCount} success, ${failCount} failed`
+    );
     console.log(`💾 Cache size: ${this.getCacheSize()} bytes`);
   }
 
@@ -132,7 +146,7 @@ export class TileCache {
     return {
       size: this.getCacheSize(),
       count: this.cache.size,
-      maxSize: this.maxSize
+      maxSize: this.maxSize,
     };
   }
 

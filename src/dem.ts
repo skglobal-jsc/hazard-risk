@@ -8,7 +8,7 @@ import {
   getPixelFromImageBitmap,
   preloadTiles,
   createDEMUrlList,
-  readPNGFromBuffer
+  readPNGFromBuffer,
 } from './utils';
 
 // DEM configuration for different zoom levels
@@ -23,40 +23,40 @@ export interface DEMConfig {
 // Default DEM configurations for GSI Japan
 export const DEFAULT_DEM_CONFIGS: DEMConfig[] = [
   {
-    title: "DEM1A",
-    url: "https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png",
+    title: 'DEM1A',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png',
     minzoom: 17,
     maxzoom: 17,
-    fixed: 1
+    fixed: 1,
   },
   {
-    title: "DEM5A",
-    url: "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png",
+    title: 'DEM5A',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png',
     minzoom: 15,
     maxzoom: 15,
-    fixed: 1
+    fixed: 1,
   },
   {
-    title: "DEM5B",
-    url: "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png",
+    title: 'DEM5B',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png',
     minzoom: 15,
     maxzoom: 15,
-    fixed: 1
+    fixed: 1,
   },
   {
-    title: "DEM5C",
-    url: "https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png",
+    title: 'DEM5C',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png',
     minzoom: 15,
     maxzoom: 15,
-    fixed: 1
+    fixed: 1,
   },
   {
-    title: "DEM10B",
-    url: "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png",
+    title: 'DEM10B',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png',
     minzoom: 14,
     maxzoom: 14,
-    fixed: 0
-  }
+    fixed: 0,
+  },
 ];
 
 // Options for getElevationFromDEM
@@ -76,23 +76,25 @@ export interface ElevationResult {
   position: { lat: number; lng: number; zoom: number };
 }
 
-
-
 // Main function to get elevation from DEM (Node.js)
-export async function getElevationFromDEM(options: GetElevationOptions): Promise<ElevationResult> {
+export async function getElevationFromDEM(
+  options: GetElevationOptions
+): Promise<ElevationResult> {
   const {
     lat,
     lng,
     zoom = 17,
     demConfigs = DEFAULT_DEM_CONFIGS,
-    cache
+    cache,
   } = options;
 
   // Create URL list for different DEM sources
   const urlList = createDEMUrlList(demConfigs);
 
   // Create tile providers for all DEM sources
-  const tileProviders = urlList.map(demConfig => createTileProvider(demConfig.url, cache));
+  const tileProviders = urlList.map(demConfig =>
+    createTileProvider(demConfig.url, cache)
+  );
 
   // Get tile coordinates for all DEM sources
   const tileCoords = urlList.map(demConfig => {
@@ -105,7 +107,10 @@ export async function getElevationFromDEM(options: GetElevationOptions): Promise
     await preloadTiles(tileCoords, tileProviders);
   } catch (error) {
     // Continue even if preload fails, will try individual tiles
-    console.warn('Preload failed, falling back to individual tile loading:', error);
+    console.warn(
+      'Preload failed, falling back to individual tile loading:',
+      error
+    );
   }
 
   // Try each DEM source until we get elevation data
@@ -139,10 +144,9 @@ export async function getElevationFromDEM(options: GetElevationOptions): Promise
           elevation,
           source: demConfig.title,
           fixed: demConfig.fixed,
-          position: { lat, lng, zoom: demConfig.zoom }
+          position: { lat, lng, zoom: demConfig.zoom },
         };
       }
-
     } catch (error) {
       // Continue to next source if this one fails
       console.warn(`Failed to get elevation from ${demConfig.title}:`, error);
@@ -153,28 +157,25 @@ export async function getElevationFromDEM(options: GetElevationOptions): Promise
   // No elevation data found
   return {
     elevation: null,
-    source: "",
+    source: '',
     fixed: 0,
-    position: { lat, lng, zoom }
+    position: { lat, lng, zoom },
   };
 }
 
-
-
 // Browser-specific implementation
-export async function getElevationFromDEMBrowser(options: GetElevationOptions): Promise<ElevationResult> {
-  const {
-    lat,
-    lng,
-    zoom = 17,
-    demConfigs = DEFAULT_DEM_CONFIGS
-  } = options;
+export async function getElevationFromDEMBrowser(
+  options: GetElevationOptions
+): Promise<ElevationResult> {
+  const { lat, lng, zoom = 17, demConfigs = DEFAULT_DEM_CONFIGS } = options;
 
   // Create URL list for different DEM sources
   const urlList = createDEMUrlList(demConfigs);
 
   // Create tile providers for all DEM sources
-  const tileProviders = urlList.map(demConfig => createBrowserTileProvider(demConfig.url));
+  const tileProviders = urlList.map(demConfig =>
+    createBrowserTileProvider(demConfig.url)
+  );
 
   // Get tile coordinates for all DEM sources
   const tileCoords = urlList.map(demConfig => {
@@ -187,7 +188,10 @@ export async function getElevationFromDEMBrowser(options: GetElevationOptions): 
     await preloadTiles(tileCoords, tileProviders);
   } catch (error) {
     // Continue even if preload fails, will try individual tiles
-    console.warn('Preload failed, falling back to individual tile loading:', error);
+    console.warn(
+      'Preload failed, falling back to individual tile loading:',
+      error
+    );
   }
 
   // Try each DEM source until we get elevation data
@@ -212,10 +216,9 @@ export async function getElevationFromDEMBrowser(options: GetElevationOptions): 
           elevation,
           source: demConfig.title,
           fixed: demConfig.fixed,
-          position: { lat, lng, zoom: demConfig.zoom }
+          position: { lat, lng, zoom: demConfig.zoom },
         };
       }
-
     } catch (error) {
       // Continue to next source if this one fails
       console.warn(`Failed to get elevation from ${demConfig.title}:`, error);
@@ -226,8 +229,8 @@ export async function getElevationFromDEMBrowser(options: GetElevationOptions): 
   // No elevation data found
   return {
     elevation: null,
-    source: "",
+    source: '',
     fixed: 0,
-    position: { lat, lng, zoom }
+    position: { lat, lng, zoom },
   };
 }

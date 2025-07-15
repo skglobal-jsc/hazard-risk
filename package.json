@@ -40,8 +40,8 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --watchAll=false",
-    "lint": "prettier src test -c",
-    "format": "prettier src test --write",
+    "lint": "prettier src __tests__ -c",
+    "format": "prettier src __tests__ --write",
     "prepack": "npm run clean && npm run build:types && npm run build",
     "publish": "npm publish --ignore-scripts",
     "release": "npx np --ignore-scripts"

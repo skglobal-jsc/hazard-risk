@@ -3,12 +3,9 @@ import {
   getElevationFromDEMBrowser,
   DEFAULT_DEM_CONFIGS,
   type GetElevationOptions,
-  type ElevationResult
+  type ElevationResult,
 } from '../src/dem';
-import {
-  calculateElevationFromRGB,
-  latLngToTile
-} from '../src/utils';
+import { calculateElevationFromRGB, latLngToTile } from '../src/utils';
 
 describe('DEM Functions', () => {
   describe('calculateElevationFromRGB', () => {
@@ -47,7 +44,9 @@ describe('DEM Functions', () => {
     it('should have correct DEM configurations', () => {
       expect(DEFAULT_DEM_CONFIGS).toHaveLength(5);
 
-      const dem1a = DEFAULT_DEM_CONFIGS.find(config => config.title === 'DEM1A');
+      const dem1a = DEFAULT_DEM_CONFIGS.find(
+        config => config.title === 'DEM1A'
+      );
       expect(dem1a).toBeDefined();
       expect(dem1a?.minzoom).toBe(17);
       expect(dem1a?.maxzoom).toBe(17);
@@ -60,7 +59,7 @@ describe('DEM Functions', () => {
       const options: GetElevationOptions = {
         lat: 35.6762,
         lng: 139.6503,
-        zoom: 17
+        zoom: 17,
       };
 
       const result = await getElevationFromDEM(options);
@@ -78,7 +77,7 @@ describe('DEM Functions', () => {
       const options: GetElevationOptions = {
         lat: 999, // Invalid latitude
         lng: 999, // Invalid longitude
-        zoom: 17
+        zoom: 17,
       };
 
       const result = await getElevationFromDEM(options);
@@ -94,7 +93,7 @@ describe('DEM Functions', () => {
       const options: GetElevationOptions = {
         lat: 35.6762,
         lng: 139.6503,
-        zoom: 17
+        zoom: 17,
       };
 
       const result = await getElevationFromDEMBrowser(options);
@@ -112,7 +111,7 @@ describe('DEM Functions', () => {
       const options: GetElevationOptions = {
         lat: 999, // Invalid latitude
         lng: 999, // Invalid longitude
-        zoom: 17
+        zoom: 17,
       };
 
       const result = await getElevationFromDEMBrowser(options);
@@ -127,19 +126,19 @@ describe('DEM Functions', () => {
     it('should work with custom DEM configs', async () => {
       const customConfigs = [
         {
-          title: "Test DEM",
-          url: "https://test-dem.com/{z}/{x}/{y}.png",
+          title: 'Test DEM',
+          url: 'https://test-dem.com/{z}/{x}/{y}.png',
           minzoom: 15,
           maxzoom: 15,
-          fixed: 1
-        }
+          fixed: 1,
+        },
       ];
 
       const options: GetElevationOptions = {
         lat: 35.6762,
         lng: 139.6503,
         zoom: 15,
-        demConfigs: customConfigs
+        demConfigs: customConfigs,
       };
 
       const result = await getElevationFromDEM(options);

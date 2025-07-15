@@ -8,12 +8,15 @@ import { point, featureCollection } from '@turf/helpers';
 import nearestPoint from '@turf/nearest-point';
 import { getPixelFromPNG, readPNGFromBuffer } from './utils';
 
-
 // Preload all hazard and base tiles in parallel
-async function preloadRiskTiles(tileCoords: { z: number, x: number, y: number }[], hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>, baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>) {
+async function preloadRiskTiles(
+  tileCoords: { z: number; x: number; y: number }[],
+  hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>,
+  baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>
+) {
   await Promise.all([
     ...tileCoords.map(coord => hazardTileProvider(coord.z, coord.x, coord.y)),
-    ...tileCoords.map(coord => baseTileProvider(coord.z, coord.x, coord.y))
+    ...tileCoords.map(coord => baseTileProvider(coord.z, coord.x, coord.y)),
   ]);
 }
 
@@ -27,8 +30,6 @@ function groupPointsByTile(grid: GridPoint[]) {
   }
   return tilePointMap;
 }
-
-
 
 function getRiskInfoFromTile(
   hazardPng: any | undefined,
@@ -47,12 +48,23 @@ function getRiskInfoFromTile(
 // Calculate statistics and optionally nearestPoints
 async function calculateStatsAndOptionallyNearestPoints(
   grid: GridPoint[],
-  hazardTileProvider: { (z: number, x: number, y: number): Promise<Buffer>; (arg0: any, arg1: any, arg2: any): any; },
-  baseTileProvider: { (z: number, x: number, y: number): Promise<Buffer>; (arg0: any, arg1: any, arg2: any): any; },
+  hazardTileProvider: {
+    (z: number, x: number, y: number): Promise<Buffer>;
+    (arg0: any, arg1: any, arg2: any): any;
+  },
+  baseTileProvider: {
+    (z: number, x: number, y: number): Promise<Buffer>;
+    (arg0: any, arg1: any, arg2: any): any;
+  },
   hazardConfig: HazardConfig | undefined,
-  currentLocation: { lat: number; lon: number; } | undefined // can be undefined
-): Promise<{ stats: { [level: string]: number, total: number }, nearestPoints?: any, waterCount: number, currentLocationRisk?: { riskLevel: number, isWater: boolean } }> {
-  const stats: { [level: string]: number, total: number } = { total: 0 };
+  currentLocation: { lat: number; lon: number } | undefined // can be undefined
+): Promise<{
+  stats: { [level: string]: number; total: number };
+  nearestPoints?: any;
+  waterCount: number;
+  currentLocationRisk?: { riskLevel: number; isWater: boolean };
+}> {
+  const stats: { [level: string]: number; total: number } = { total: 0 };
   let total = 0;
   let waterCount = 0;
   const tilePointMap = groupPointsByTile(grid);
@@ -61,46 +73,73 @@ async function calculateStatsAndOptionallyNearestPoints(
   const levelPoints: { [level: string]: Feature<Point>[] } = {};
 
   // Determine risk at currentLocation (if exists)
-  let currentLocationRisk: { riskLevel: number, isWater: boolean } | undefined = undefined;
+  let currentLocationRisk: { riskLevel: number; isWater: boolean } | undefined =
+    undefined;
   if (currentLocation) {
     // Find tile and pixel containing currentLocation
-    const samplePoint = grid.find(pt => Math.abs(pt.lat - currentLocation.lat) < 1e-6 && Math.abs(pt.lon - currentLocation.lon) < 1e-6);
+    const samplePoint = grid.find(
+      pt =>
+        Math.abs(pt.lat - currentLocation.lat) < 1e-6 &&
+        Math.abs(pt.lon - currentLocation.lon) < 1e-6
+    );
     if (samplePoint) {
       const { z, x, y } = samplePoint.tile;
       let hazardPng: any | undefined, basePng: any | undefined;
-      try { hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y)); } catch {}
-      try { basePng = readPNGFromBuffer(await baseTileProvider(z, x, y)); } catch {}
-      const { riskLevel, isWater } = getRiskInfoFromTile(hazardPng, basePng, samplePoint.pixel.x, samplePoint.pixel.y, hazardConfig);
+      try {
+        hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y));
+      } catch {}
+      try {
+        basePng = readPNGFromBuffer(await baseTileProvider(z, x, y));
+      } catch {}
+      const { riskLevel, isWater } = getRiskInfoFromTile(
+        hazardPng,
+        basePng,
+        samplePoint.pixel.x,
+        samplePoint.pixel.y,
+        hazardConfig
+      );
       currentLocationRisk = { riskLevel, isWater };
     }
   }
 
-  await Promise.all(Array.from(tilePointMap.entries()).map(async ([key, points]) => {
-    const { z, x, y } = points[0].tile;
-    let hazardPng: any | undefined, basePng: any | undefined;
-    try { hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y)); } catch {}
-    try { basePng = readPNGFromBuffer(await baseTileProvider(z, x, y)); } catch {}
-    for (const p of points) {
-      const { riskLevel, isWater } = getRiskInfoFromTile(hazardPng, basePng, p.pixel.x, p.pixel.y, hazardConfig);
-      if (isWater) {
-        waterCount++;
-        continue;
-      }
-      stats[riskLevel] = (stats[riskLevel] || 0) + 1;
-      total++;
-      if (hasNearest) {
-        if (!levelPoints[riskLevel]) levelPoints[riskLevel] = [];
-        levelPoints[riskLevel].push(
-          point([p.lon, p.lat], {
-            level: riskLevel,
-            color: hazardConfig!.levels[riskLevel]?.color,
-            latitude: p.lat,
-            longitude: p.lon
-          })
+  await Promise.all(
+    Array.from(tilePointMap.entries()).map(async ([key, points]) => {
+      const { z, x, y } = points[0].tile;
+      let hazardPng: any | undefined, basePng: any | undefined;
+      try {
+        hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y));
+      } catch {}
+      try {
+        basePng = readPNGFromBuffer(await baseTileProvider(z, x, y));
+      } catch {}
+      for (const p of points) {
+        const { riskLevel, isWater } = getRiskInfoFromTile(
+          hazardPng,
+          basePng,
+          p.pixel.x,
+          p.pixel.y,
+          hazardConfig
         );
+        if (isWater) {
+          waterCount++;
+          continue;
+        }
+        stats[riskLevel] = (stats[riskLevel] || 0) + 1;
+        total++;
+        if (hasNearest) {
+          if (!levelPoints[riskLevel]) levelPoints[riskLevel] = [];
+          levelPoints[riskLevel].push(
+            point([p.lon, p.lat], {
+              level: riskLevel,
+              color: hazardConfig!.levels[riskLevel]?.color,
+              latitude: p.lat,
+              longitude: p.lon,
+            })
+          );
+        }
       }
-    }
-  }));
+    })
+  );
   stats.total = total;
   // Calculate nearestPoints using turf
   let nearestPoints: { [level: string]: any } = {};
@@ -112,23 +151,28 @@ async function calculateStatsAndOptionallyNearestPoints(
         const nearest = nearestPoint(from, fc, { units: 'meters' });
         nearestPoints[level] = {
           ...nearest.properties,
-          distance: nearest.properties?.distanceToPoint // already in meters
+          distance: nearest.properties?.distanceToPoint, // already in meters
         };
       }
     }
-    return { stats, nearestPoints, waterCount, currentLocationRisk, hazardConfig } as any;
+    return {
+      stats,
+      nearestPoints,
+      waterCount,
+      currentLocationRisk,
+      hazardConfig,
+    } as any;
   } else {
     return { stats, waterCount, currentLocationRisk, hazardConfig } as any;
   }
 }
 
-
 // Wrapper for Node.js
-export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: TileCache): Promise<any> {
-  const {
-    hazardTileUrl,
-    baseTileUrl
-  } = options;
+export async function analyzeRiskInPolygon(
+  options: AnalyzeRiskOptions,
+  cache?: TileCache
+): Promise<any> {
+  const { hazardTileUrl, baseTileUrl } = options;
   // console.log('analyzeRiskInPolygon', JSON.stringify(options, null, 2));
   // Only use createNodeTileProvider for Node.js
   let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
@@ -137,11 +181,15 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
     hazardTileProvider = createTileProvider(hazardTileUrl, cache);
     baseTileProvider = createTileProvider(baseTileUrl, cache);
   } else {
-    throw new Error('Browser environment not supported in this Node.js pipeline');
+    throw new Error(
+      'Browser environment not supported in this Node.js pipeline'
+    );
   }
 
   const grid = createGrid(options.polygon, options.gridSize, options.zoom);
-  const tileCoordSet = new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`));
+  const tileCoordSet = new Set(
+    grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`)
+  );
   const tileCoords = Array.from(tileCoordSet).map(key => {
     const [z, x, y] = key.split('/').map(Number);
     return { z, x, y };
@@ -158,17 +206,18 @@ export async function analyzeRiskInPolygon(options: AnalyzeRiskOptions, cache?: 
 }
 
 // Wrapper for Browser
-export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): Promise<any> {
-  const {
-    hazardTileUrl,
-    baseTileUrl
-  } = options;
+export async function analyzeRiskInPolygonBrowser(
+  options: AnalyzeRiskOptions
+): Promise<any> {
+  const { hazardTileUrl, baseTileUrl } = options;
   // Use createBrowserTileProvider for browser
   const hazardTileProvider = createBrowserTileProvider(hazardTileUrl);
   const baseTileProvider = createBrowserTileProvider(baseTileUrl);
 
   const grid = createGrid(options.polygon, options.gridSize, options.zoom);
-  const tileCoordSet = new Set(grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`));
+  const tileCoordSet = new Set(
+    grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`)
+  );
   const tileCoords = Array.from(tileCoordSet).map(key => {
     const [z, x, y] = key.split('/').map(Number);
     return { z, x, y };
@@ -189,12 +238,12 @@ export async function analyzeRiskInPolygonBrowser(options: AnalyzeRiskOptions): 
       level2: 0,
       level3: 0,
       level4: 0,
-      level5: 0
+      level5: 0,
     },
     nearestPoints: {},
     waterCount: 0,
     currentLocationRisk: undefined,
-    hazardConfig: options.hazardConfig
+    hazardConfig: options.hazardConfig,
   };
 }
 
@@ -207,7 +256,7 @@ export type {
   AnalyzeRiskResult,
   GeoJSONPolygon,
   HazardConfig,
-  RiskLevelConfig
+  RiskLevelConfig,
 } from './types';
 
 export { NodeRasterReader } from './raster';
@@ -220,7 +269,7 @@ export {
   DEFAULT_DEM_CONFIGS,
   type GetElevationOptions,
   type ElevationResult,
-  type DEMConfig
+  type DEMConfig,
 } from './dem';
 
 // Export utility functions
@@ -231,5 +280,5 @@ export {
   getPixelFromImageBitmap,
   preloadTiles,
   createDEMUrlList,
-  readPNGFromBuffer
+  readPNGFromBuffer,
 } from './utils';

@@ -9,14 +9,18 @@ export function createGrid(
   gridSize: number, // meters
   zoom: number
 ): GridPoint[] {
-  if (!polygon || polygon.type !== 'Polygon' || !Array.isArray(polygon.coordinates)) {
+  if (
+    !polygon ||
+    polygon.type !== 'Polygon' ||
+    !Array.isArray(polygon.coordinates)
+  ) {
     throw new Error('Invalid GeoJSON Polygon');
   }
   const bbox = getBoundingBox(polygon);
 
   const pointGrids = pointGrid(bbox, gridSize, {
     units: 'meters',
-    mask: feature(polygon)
+    mask: feature(polygon),
   });
 
   // Convert turf points to GridPoint[]
@@ -31,7 +35,7 @@ export function createGrid(
       lon,
       tile,
       pixel,
-      isWater: false // Default initialization
+      isWater: false, // Default initialization
     });
   }
 
@@ -41,8 +45,16 @@ export function createGrid(
 // Convert lat/lon to XYZ tile
 function latLonToTile(lat: number, lon: number, zoom: number) {
   const n = Math.pow(2, zoom);
-  const xtile = Math.floor((lon + 180) / 360 * n);
-  const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+  const xtile = Math.floor(((lon + 180) / 360) * n);
+  const ytile = Math.floor(
+    ((1 -
+      Math.log(
+        Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)
+      ) /
+        Math.PI) /
+      2) *
+      n
+  );
 
   return { z: zoom, x: xtile, y: ytile };
 }
@@ -50,11 +62,19 @@ function latLonToTile(lat: number, lon: number, zoom: number) {
 // Convert lat/lon to pixel in tile
 function latLonToPixel(lat: number, lon: number, zoom: number) {
   const n = Math.pow(2, zoom);
-  const x = ((lon + 180) / 360 * n) * 256;
-  const y = ((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n) * 256;
+  const x = ((lon + 180) / 360) * n * 256;
+  const y =
+    ((1 -
+      Math.log(
+        Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)
+      ) /
+        Math.PI) /
+      2) *
+    n *
+    256;
 
   return {
     x: Math.floor(x % 256),
-    y: Math.floor(y % 256)
+    y: Math.floor(y % 256),
   };
 }

@@ -1,4 +1,10 @@
-import type { RiskLevel, RiskStat, GridPoint, HazardConfig, RiskLevelConfig } from './types';
+import type {
+  RiskLevel,
+  RiskStat,
+  GridPoint,
+  HazardConfig,
+  RiskLevelConfig,
+} from './types';
 
 // Default hazard config for tsunami (GSI Japan)
 const DEFAULT_TSUNAMI_CONFIG: HazardConfig = {
@@ -7,26 +13,26 @@ const DEFAULT_TSUNAMI_CONFIG: HazardConfig = {
     0: {
       name: 'level0',
       color: '0,0,0',
-      description: 'No risk'
+      description: 'No risk',
     },
     1: {
       name: 'level1',
       color: '255,255,0',
-      description: 'Attention'
+      description: 'Attention',
     },
     2: {
       name: 'level2',
       color: '255,165,0',
-      description: 'Warning'
+      description: 'Warning',
     },
     3: {
       name: 'level3',
       color: '255,0,0',
-      description: 'Very dangerous'
-    }
+      description: 'Very dangerous',
+    },
   },
   // Array of predefined water colors
-  waterColors: ['#bed2ff', '#a8c8ff', '#8bb8ff', '#6aa8ff']
+  waterColors: ['#bed2ff', '#a8c8ff', '#8bb8ff', '#6aa8ff'],
 };
 
 // Convert RGB to hex format
@@ -43,12 +49,16 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return {
     r: parseInt(result[1], 16),
     g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
+    b: parseInt(result[3], 16),
   };
 }
 
 // Convert RGB string to RGB object
-function parseRgbString(rgbString: string): { r: number; g: number; b: number } {
+function parseRgbString(rgbString: string): {
+  r: number;
+  g: number;
+  b: number;
+} {
   const parts = rgbString.split(',').map(s => parseInt(s.trim()));
   if (parts.length !== 3) {
     throw new Error(`Invalid RGB string: ${rgbString}`);
@@ -57,7 +67,11 @@ function parseRgbString(rgbString: string): { r: number; g: number; b: number } 
 }
 
 // Normalize color to RGB object
-export function normalizeColor(color: string): { r: number; g: number; b: number } {
+export function normalizeColor(color: string): {
+  r: number;
+  g: number;
+  b: number;
+} {
   if (color.startsWith('#')) {
     return hexToRgb(color);
   } else {
@@ -66,7 +80,9 @@ export function normalizeColor(color: string): { r: number; g: number; b: number
 }
 
 // Create color mapping from levels config
-function createColorMapping(hazardConfig: HazardConfig): { [key: string]: RiskLevel } {
+function createColorMapping(hazardConfig: HazardConfig): {
+  [key: string]: RiskLevel;
+} {
   const colorMapping: { [key: string]: RiskLevel } = {};
 
   for (const [level, config] of Object.entries(hazardConfig.levels)) {
@@ -121,7 +137,7 @@ export function createHazardConfig(
   return {
     name,
     levels,
-    waterColors
+    waterColors,
   };
 }
 

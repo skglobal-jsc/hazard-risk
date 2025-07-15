@@ -6,7 +6,11 @@ import { normalizeColor, classifyRiskFromRGB, isWaterColor } from './risk';
 import type { RasterReader } from './raster-reader';
 
 // Fetch tile from URL with axios
-export async function fetchTile(url: string, cache?: TileCache, coords?: { z: number; x: number; y: number }): Promise<Buffer> {
+export async function fetchTile(
+  url: string,
+  cache?: TileCache,
+  coords?: { z: number; x: number; y: number }
+): Promise<Buffer> {
   // Create key for cache
   const cacheKey = coords || { z: 0, x: 0, y: 0 };
 
@@ -25,9 +29,9 @@ export async function fetchTile(url: string, cache?: TileCache, coords?: { z: nu
       timeout: 30000, // Increase timeout to 30 seconds for GSI Japan
       headers: {
         'User-Agent': 'HazardRisk/1.0',
-        'Accept': 'image/png,image/*,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate'
-      }
+        Accept: 'image/png,image/*,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+      },
     });
 
     const buffer = Buffer.from(response.data);
@@ -83,15 +87,22 @@ export function createTileProvider(urlTemplate: string, cache?: TileCache) {
 
 // Implementation for Node.js (using pngjs)
 export class NodeRasterReader implements RasterReader {
-  constructor(private tileProvider: (z: number, x: number, y: number) => Promise<Buffer>) {}
+  constructor(
+    private tileProvider: (z: number, x: number, y: number) => Promise<Buffer>
+  ) {}
 
-  async getPixelRGB(tile: TileCoord, pixel: PixelCoord): Promise<{ r: number; g: number; b: number }> {
+  async getPixelRGB(
+    tile: TileCoord,
+    pixel: PixelCoord
+  ): Promise<{ r: number; g: number; b: number }> {
     try {
       const tileBuffer = await this.tileProvider(tile.z, tile.x, tile.y);
 
       // Check if buffer is valid or empty (tile not found)
       if (!tileBuffer || tileBuffer.length === 0) {
-        console.warn(`Empty tile buffer for tile ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
+        console.warn(
+          `Empty tile buffer for tile ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`
+        );
         return { r: 0, g: 0, b: 0 }; // Return level 0 color (no risk)
       }
 
@@ -102,8 +113,15 @@ export class NodeRasterReader implements RasterReader {
           const { width, height, data } = png;
 
           // Check if pixel coordinates are valid
-          if (pixel.x < 0 || pixel.x >= width || pixel.y < 0 || pixel.y >= height) {
-            console.warn(`Invalid pixel coordinates: ${pixel.x}, ${pixel.y} for tile ${width}x${height}`);
+          if (
+            pixel.x < 0 ||
+            pixel.x >= width ||
+            pixel.y < 0 ||
+            pixel.y >= height
+          ) {
+            console.warn(
+              `Invalid pixel coordinates: ${pixel.x}, ${pixel.y} for tile ${width}x${height}`
+            );
             resolve({ r: 0, g: 0, b: 0 }); // Return level 0 color
             return;
           }
@@ -114,16 +132,22 @@ export class NodeRasterReader implements RasterReader {
           resolve({
             r: data[index] || 0,
             g: data[index + 1] || 0,
-            b: data[index + 2] || 0
+            b: data[index + 2] || 0,
           });
         } catch (error) {
-          console.warn(`pngjs error for tile ${tile.z}/${tile.x}/${tile.y}:`, error);
+          console.warn(
+            `pngjs error for tile ${tile.z}/${tile.x}/${tile.y}:`,
+            error
+          );
           // Fallback: return level 0 color
           resolve({ r: 0, g: 0, b: 0 });
         }
       });
     } catch (error: any) {
-      console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
+      console.warn(
+        `Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`,
+        error
+      );
       // Fallback: return level 0 color (no risk)
       return { r: 0, g: 0, b: 0 };
     }
@@ -146,14 +170,25 @@ export class BrowserRasterReader implements RasterReader {
   private level0Color: { r: number; g: number; b: number };
 
   constructor(
-    private hazardTileProvider: (z: number, x: number, y: number) => Promise<ImageBitmap>,
-    private baseTileProvider?: (z: number, x: number, y: number) => Promise<ImageBitmap>,
+    private hazardTileProvider: (
+      z: number,
+      x: number,
+      y: number
+    ) => Promise<ImageBitmap>,
+    private baseTileProvider?: (
+      z: number,
+      x: number,
+      y: number
+    ) => Promise<ImageBitmap>,
     level0Color: string = '0,0,0'
   ) {
     this.level0Color = normalizeColor(level0Color);
   }
 
-  async getPixelRGB(tile: TileCoord, pixel: PixelCoord): Promise<{ r: number; g: number; b: number }> {
+  async getPixelRGB(
+    tile: TileCoord,
+    pixel: PixelCoord
+  ): Promise<{ r: number; g: number; b: number }> {
     try {
       const tileImage = await this.hazardTileProvider(tile.z, tile.x, tile.y);
 
@@ -170,16 +205,21 @@ export class BrowserRasterReader implements RasterReader {
       return {
         r: data[0],
         g: data[1],
-        b: data[2]
+        b: data[2],
       };
     } catch (error: any) {
       // Handle error similarly to Node.js
       if (error.message?.includes('TILE_NOT_FOUND')) {
-        console.warn(`Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`);
+        console.warn(
+          `Tile not found for ${tile.z}/${tile.x}/${tile.y} - Treating as no risk`
+        );
         return this.level0Color; // Return level 0 color instead of black
       }
 
-      console.warn(`Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`, error);
+      console.warn(
+        `Error reading pixel from tile ${tile.z}/${tile.x}/${tile.y}:`,
+        error
+      );
       return this.level0Color; // Return level 0 color instead of black
     }
   }
@@ -192,13 +232,22 @@ export class BrowserRasterReader implements RasterReader {
     try {
       // Read hazard tile to get risk level
       const hazardRgb = await this.getPixelRGB(tile, pixel);
-      const riskLevel = classifyRiskFromRGB(hazardRgb.r, hazardRgb.g, hazardRgb.b, hazardConfig);
+      const riskLevel = classifyRiskFromRGB(
+        hazardRgb.r,
+        hazardRgb.g,
+        hazardRgb.b,
+        hazardConfig
+      );
 
       // Read base tile to detect water (if baseTileProvider exists)
       let isWater = false;
       if (this.baseTileProvider) {
         try {
-          const baseTileImage = await this.baseTileProvider(tile.z, tile.x, tile.y);
+          const baseTileImage = await this.baseTileProvider(
+            tile.z,
+            tile.x,
+            tile.y
+          );
 
           // Create canvas to read pixel from base tile
           const canvas = document.createElement('canvas');
@@ -213,7 +262,7 @@ export class BrowserRasterReader implements RasterReader {
           const baseRgb = {
             r: data[0],
             g: data[1],
-            b: data[2]
+            b: data[2],
           };
 
           // Check water color
@@ -252,7 +301,6 @@ export function createBrowserTileProvider(urlTemplate: string) {
       const blob = await res.blob();
       return await createImageBitmap(blob);
     } catch (error: any) {
-
       // Handle timeout
       if (error.message?.includes('timeout')) {
         console.warn(`Timeout fetching tile: ${url}`);
