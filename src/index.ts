@@ -6,7 +6,7 @@ import type { AnalyzeRiskOptions, GridPoint, HazardConfig } from './types';
 import type { Feature, Point } from 'geojson';
 import { point, featureCollection } from '@turf/helpers';
 import nearestPoint from '@turf/nearest-point';
-import { getPixelFromPNG, readPNGFromBuffer } from './utils';
+import { getPixelFromPNG, readPNGFromBuffer, latLngToTile } from './utils';
 
 // Preload all hazard and base tiles in parallel
 async function preloadRiskTiles(
@@ -75,14 +75,51 @@ async function calculateStatsAndOptionallyNearestPoints(
   // Determine risk at currentLocation (if exists)
   let currentLocationRisk: { riskLevel: number; isWater: boolean } | undefined =
     undefined;
-  if (currentLocation) {
-    // Find tile and pixel containing currentLocation
-    const samplePoint = grid.find(
+    if (currentLocation) {
+    // Method 1: Try to find exact point in grid
+    let samplePoint = grid.find(
       pt =>
         Math.abs(pt.lat - currentLocation.lat) < 1e-6 &&
         Math.abs(pt.lon - currentLocation.lon) < 1e-6
     );
+
+    // Method 2: If no exact match, find nearest point in grid
+    if (!samplePoint && grid.length > 0) {
+      let minDistance = Infinity;
+      for (const pt of grid) {
+        const distance = Math.sqrt(
+          Math.pow(pt.lat - currentLocation.lat, 2) +
+          Math.pow(pt.lon - currentLocation.lon, 2)
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          samplePoint = pt;
+        }
+      }
+    }
+
+    // Method 3: If still no point found, calculate exact tile/pixel for currentLocation
+    if (!samplePoint) {
+      // Get zoom from first grid point or use default
+      const zoom = grid.length > 0 ? grid[0].tile.z : 12;
+      const { tile: exactTile, pixel: exactPixel } = latLngToTile(currentLocation.lat, currentLocation.lon, zoom);
+
+      // Check if this tile is within our analyzed area
+      const tileKey = `${exactTile.z}/${exactTile.x}/${exactTile.y}`;
+      const isTileAnalyzed = tilePointMap.has(tileKey);
+
+      if (isTileAnalyzed) {
+        samplePoint = {
+          lat: currentLocation.lat,
+          lon: currentLocation.lon,
+          tile: exactTile,
+          pixel: exactPixel,
+          isWater: false
+        };
+      }
+    }
     if (samplePoint) {
+      console.log('samplePoint', samplePoint);
       const { z, x, y } = samplePoint.tile;
       let hazardPng: any | undefined, basePng: any | undefined;
       try {
