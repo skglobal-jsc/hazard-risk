@@ -1,607 +1,781 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Hazard Risk GeoJSON Editor</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
+    />
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', 'Calibri', 'Trebuchet MS', 'Ubuntu', Arial, sans-serif;
-            background: #f6f8fa;
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family:
+          'Segoe UI', 'Calibri', 'Trebuchet MS', 'Ubuntu', Arial, sans-serif;
+        background: #f6f8fa;
+      }
+      .container {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
+      }
+      .map-panel {
+        flex: 1 1 0;
+        min-width: 0;
+        position: relative;
+        background: #eaeaea;
+      }
+      #map {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+      }
+      .side-panel {
+        width: 420px;
+        background: #fff;
+        border-left: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 12px 0;
+        text-align: center;
+        background: #f6f8fa;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 15px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .tab-btn.active {
+        background: #fff;
+        border-bottom: 2px solid #1976d2;
+        color: #1976d2;
+        font-weight: bold;
+      }
+      .tab-content {
+        flex: 1;
+        padding: 18px 18px 12px 18px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .geojson-textarea {
+        width: 100%;
+        flex: 1 1 0;
+        min-height: 0;
+        height: 100%;
+        font-family: monospace;
+        font-size: 13px;
+        border-radius: 6px;
+        border: 1px solid #d0d0d0;
+        padding: 10px;
+        resize: none;
+        background: #f9f9f9;
+      }
+      .config-form label {
+        font-weight: bold;
+        margin-top: 12px;
+        display: block;
+        font-size: 13px;
+      }
+      .config-form input {
+        width: 100%;
+        padding: 7px 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-top: 4px;
+        font-size: 13px;
+        background: #f9f9f9;
+      }
+      .config-form {
+        margin-top: 8px;
+      }
+      .config-form .form-group {
+        margin-bottom: 14px;
+      }
+      .hazard-config {
+        border-top: 1px solid #e0e0e0;
+        margin-top: 20px;
+        padding-top: 20px;
+      }
+      .hazard-config h3 {
+        margin: 0 0 15px 0;
+        font-size: 16px;
+        color: #333;
+      }
+      .level-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        padding: 8px;
+        background: #f9f9f9;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+      }
+      .level-item:hover {
+        background: #f0f0f0;
+      }
+      .level-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+        cursor: pointer;
+      }
+      .level-inputs {
+        flex: 1;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .level-inputs input {
+        margin: 0;
+        padding: 4px 6px;
+        font-size: 12px;
+      }
+      .level-inputs input[type='text'] {
+        flex: 1;
+      }
+      .level-inputs input[type='color'] {
+        width: 30px;
+        height: 25px;
+        padding: 0;
+        border: none;
+        border-radius: 3px;
+      }
+      .add-level-btn {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-top: 10px;
+      }
+      .add-level-btn:hover {
+        background: #45a049;
+      }
+      .remove-level-btn {
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .remove-level-btn:hover {
+        background: #da190b;
+      }
+      .water-colors {
+        margin-top: 15px;
+      }
+      .water-colors h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #555;
+      }
+      .color-list {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .color-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .color-item input[type='color'] {
+        width: 25px;
+        height: 20px;
+        border: none;
+        border-radius: 2px;
+      }
+      .add-color-btn {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .add-color-btn:hover {
+        background: #1976d2;
+      }
+      .remove-color-btn {
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 2px 6px;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 10px;
+      }
+      .remove-color-btn:hover {
+        background: #da190b;
+      }
+
+      /* Hazard Tile Styles */
+      .hazard-tile-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 12px;
+        background: #f9f9f9;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+      }
+      .hazard-tile-item:hover {
+        background: #f0f0f0;
+      }
+      .hazard-tile-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .hazard-tile-header label {
+        margin: 0;
+        font-size: 12px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .hazard-tile-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .hazard-tile-controls input[type='checkbox'] {
+        margin: 0;
+      }
+      .hazard-tile-controls input[type='number'] {
+        width: 60px;
+        margin: 0;
+        padding: 4px 6px;
+        font-size: 12px;
+      }
+      .hazard-tile-url {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+        background: #fff;
+      }
+      .hazard-tile-name {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+        background: #fff;
+      }
+
+      /* Demo Tab Styles */
+      .demo-controls {
+        padding: 15px;
+      }
+      .demo-controls h3 {
+        margin: 0 0 10px 0;
+        color: #333;
+      }
+      .demo-controls p {
+        margin: 0 0 15px 0;
+        color: #666;
+        font-size: 14px;
+      }
+      .demo-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .step-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: #f5f5f5;
+        border-radius: 6px;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+      }
+      .step-item.active {
+        background: #e3f2fd;
+        border-color: #2196f3;
+        color: #1976d2;
+      }
+      .step-item.completed {
+        background: #e8f5e8;
+        border-color: #4caf50;
+        color: #2e7d32;
+      }
+      .step-number {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #ccc;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 12px;
+      }
+      .step-item.active .step-number {
+        background: #2196f3;
+      }
+      .step-item.completed .step-number {
+        background: #4caf50;
+      }
+      .step-text {
+        font-weight: 500;
+      }
+      .demo-controls-buttons {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 15px;
+      }
+      .demo-btn {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .demo-btn:hover {
+        background: #1976d2;
+      }
+      .demo-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .demo-info {
+        background: #f9f9f9;
+        padding: 12px;
+        border-radius: 6px;
+        border-left: 4px solid #2196f3;
+      }
+      .demo-info div {
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .demo-info div:last-child {
+        margin-bottom: 0;
+      }
+
+      @media (max-width: 900px) {
+        .side-panel {
+          width: 100vw;
+          position: absolute;
+          z-index: 10;
+          right: 0;
+          top: 0;
+          height: 60vh;
         }
         .container {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
+          flex-direction: column;
         }
         .map-panel {
-            flex: 1 1 0;
-            min-width: 0;
-            position: relative;
-            background: #eaeaea;
+          height: 40vh;
         }
-        #map {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 1;
-        }
-        .side-panel {
-            width: 420px;
-            background: #fff;
-            border-left: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            box-shadow: -2px 0 8px rgba(0,0,0,0.04);
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 12px 0;
-            text-align: center;
-            background: #f6f8fa;
-            border: none;
-            border-bottom: 2px solid transparent;
-            font-size: 15px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .tab-btn.active {
-            background: #fff;
-            border-bottom: 2px solid #1976d2;
-            color: #1976d2;
-            font-weight: bold;
-        }
-        .tab-content {
-            flex: 1;
-            padding: 18px 18px 12px 18px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-        .geojson-textarea {
-            width: 100%;
-            flex: 1 1 0;
-            min-height: 0;
-            height: 100%;
-            font-family: monospace;
-            font-size: 13px;
-            border-radius: 6px;
-            border: 1px solid #d0d0d0;
-            padding: 10px;
-            resize: none;
-            background: #f9f9f9;
-        }
-        .config-form label {
-            font-weight: bold;
-            margin-top: 12px;
-            display: block;
-            font-size: 13px;
-        }
-        .config-form input {
-            width: 100%;
-            padding: 7px 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-top: 4px;
-            font-size: 13px;
-            background: #f9f9f9;
-        }
-        .config-form {
-            margin-top: 8px;
-        }
-        .config-form .form-group {
-            margin-bottom: 14px;
-        }
-        .hazard-config {
-            border-top: 1px solid #e0e0e0;
-            margin-top: 20px;
-            padding-top: 20px;
-        }
-        .hazard-config h3 {
-            margin: 0 0 15px 0;
-            font-size: 16px;
-            color: #333;
-        }
-        .level-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
-            padding: 8px;
-            background: #f9f9f9;
-            border-radius: 4px;
-            border: 1px solid #e0e0e0;
-        }
-        .level-item:hover {
-            background: #f0f0f0;
-        }
-        .level-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 3px;
-            border: 1px solid #ccc;
-            cursor: pointer;
-        }
-        .level-inputs {
-            flex: 1;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .level-inputs input {
-            margin: 0;
-            padding: 4px 6px;
-            font-size: 12px;
-        }
-        .level-inputs input[type="text"] {
-            flex: 1;
-        }
-        .level-inputs input[type="color"] {
-            width: 30px;
-            height: 25px;
-            padding: 0;
-            border: none;
-            border-radius: 3px;
-        }
-        .add-level-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-top: 10px;
-        }
-        .add-level-btn:hover {
-            background: #45a049;
-        }
-        .remove-level-btn {
-            background: #f44336;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .remove-level-btn:hover {
-            background: #da190b;
-        }
-        .water-colors {
-            margin-top: 15px;
-        }
-        .water-colors h4 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            color: #555;
-        }
-        .color-list {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .color-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .color-item input[type="color"] {
-            width: 25px;
-            height: 20px;
-            border: none;
-            border-radius: 2px;
-        }
-        .add-color-btn {
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .add-color-btn:hover {
-            background: #1976D2;
-        }
-        .remove-color-btn {
-            background: #f44336;
-            color: white;
-            border: none;
-            padding: 2px 6px;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 10px;
-        }
-        .remove-color-btn:hover {
-            background: #da190b;
-        }
-
-        /* Hazard Tile Styles */
-        .hazard-tile-item {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 12px;
-            padding: 12px;
-            background: #f9f9f9;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-        }
-        .hazard-tile-item:hover {
-            background: #f0f0f0;
-        }
-        .hazard-tile-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .hazard-tile-header label {
-            margin: 0;
-            font-size: 12px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            white-space: nowrap;
-        }
-        .hazard-tile-controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .hazard-tile-controls input[type="checkbox"] {
-            margin: 0;
-        }
-        .hazard-tile-controls input[type="number"] {
-            width: 60px;
-            margin: 0;
-            padding: 4px 6px;
-            font-size: 12px;
-        }
-        .hazard-tile-url {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 12px;
-            background: #fff;
-        }
-        .hazard-tile-name {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 12px;
-            background: #fff;
-        }
-
-        /* Demo Tab Styles */
-        .demo-controls {
-            padding: 15px;
-        }
-        .demo-controls h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        .demo-controls p {
-            margin: 0 0 15px 0;
-            color: #666;
-            font-size: 14px;
-        }
-        .demo-steps {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-        .step-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
-            background: #f5f5f5;
-            border-radius: 6px;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-        }
-        .step-item.active {
-            background: #e3f2fd;
-            border-color: #2196F3;
-            color: #1976D2;
-        }
-        .step-item.completed {
-            background: #e8f5e8;
-            border-color: #4CAF50;
-            color: #2e7d32;
-        }
-        .step-number {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #ccc;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        .step-item.active .step-number {
-            background: #2196F3;
-        }
-        .step-item.completed .step-number {
-            background: #4CAF50;
-        }
-        .step-text {
-            font-weight: 500;
-        }
-        .demo-controls-buttons {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-        .demo-btn {
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .demo-btn:hover {
-            background: #1976D2;
-        }
-        .demo-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .demo-info {
-            background: #f9f9f9;
-            padding: 12px;
-            border-radius: 6px;
-            border-left: 4px solid #2196F3;
-        }
-        .demo-info div {
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-        .demo-info div:last-child {
-            margin-bottom: 0;
-        }
-
-        @media (max-width: 900px) {
-            .side-panel { width: 100vw; position: absolute; z-index: 10; right: 0; top: 0; height: 60vh; }
-            .container { flex-direction: column; }
-            .map-panel { height: 40vh; }
-        }
+      }
     </style>
-</head>
-<body>
-<div class="container">
-    <div class="map-panel">
+  </head>
+  <body>
+    <div class="container">
+      <div class="map-panel">
         <div id="map"></div>
-    </div>
-    <div class="side-panel">
+      </div>
+      <div class="side-panel">
         <div class="tabs">
-            <button class="tab-btn active" id="tabGeoJsonBtn" onclick="showTab('geojson')">GeoJSON</button>
-            <button class="tab-btn" id="tabConfigBtn" onclick="showTab('config')">Config</button>
-            <button class="tab-btn" id="tabDemoBtn" onclick="showTab('demo')">Algorithm Demo</button>
+          <button
+            class="tab-btn active"
+            id="tabGeoJsonBtn"
+            onclick="showTab('geojson')"
+          >
+            GeoJSON
+          </button>
+          <button class="tab-btn" id="tabConfigBtn" onclick="showTab('config')">
+            Config
+          </button>
+          <button class="tab-btn" id="tabDemoBtn" onclick="showTab('demo')">
+            Algorithm Demo
+          </button>
         </div>
         <div class="tab-content" id="tabGeoJson">
-            <textarea id="geojsonText" class="geojson-textarea"></textarea>
+          <textarea id="geojsonText" class="geojson-textarea"></textarea>
         </div>
-        <div class="tab-content" id="tabConfig" style="display:none;">
-            <form class="config-form" autocomplete="off" onsubmit="return false;">
-                <div class="form-group">
-                  <label for="baseUrl">Water Map Tile URL</label>
-                  <input readonly type="text" id="baseUrl" value="https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png">
-                </div>
-                <div class="form-group">
-                    <label>Hazard Tiles</label>
-                    <div id="hazardTilesContainer">
-                        <!-- Hazard tiles will be populated by JavaScript -->
-                    </div>
-                    <button type="button" class="add-level-btn" onclick="addHazardTile()">+ Add Hazard Tile</button>
-                </div>
-
-                <div class="form-group">
-                    <label for="mergeStrategy">Merge Strategy</label>
-                    <select id="mergeStrategy" style="width: 100%; padding: 7px 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; font-size: 13px; background: #f9f9f9;">
-                        <option value="max">Max (Highest Risk)</option>
-                        <option value="average">Average (Balanced)</option>
-                        <option value="weighted">Weighted (By Weights)</option>
-                        <option value="priority">Priority (Highest Priority)</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="gridSize">Grid Size (meters)</label>
-                    <input type="number" id="gridSize" value="20" min="10" max="1000">
-                </div>
-                <div class="form-group">
-                    <label for="zoom">Zoom level</label>
-                    <input type="number" id="zoom" value="13" min="2" max="20">
-                </div>
-            </form>
-
-            <div class="hazard-config">
-                <h3>Hazard Configuration</h3>
-                <div class="form-group">
-                    <label for="hazardName">Hazard Name</label>
-                    <input type="text" id="hazardName" value="House collapse">
-                </div>
-
-                <div class="form-group">
-                    <label>Risk Levels</label>
-                    <div id="riskLevels">
-                        <!-- Risk levels will be populated by JavaScript -->
-                    </div>
-                    <button type="button" class="add-level-btn" onclick="addRiskLevel()">+ Add Level</button>
-                </div>
-
-                <div class="water-colors">
-                    <h4>Water Colors</h4>
-                    <div id="waterColors" class="color-list">
-                        <!-- Water colors will be populated by JavaScript -->
-                    </div>
-                    <button type="button" class="add-color-btn" onclick="addWaterColor()">+ Add Color</button>
-                </div>
+        <div class="tab-content" id="tabConfig" style="display: none">
+          <form class="config-form" autocomplete="off" onsubmit="return false;">
+            <div class="form-group">
+              <label for="baseUrl">Water Map Tile URL</label>
+              <input
+                readonly
+                type="text"
+                id="baseUrl"
+                value="https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"
+              />
+            </div>
+            <div class="form-group">
+              <label>Hazard Tiles</label>
+              <div id="hazardTilesContainer">
+                <!-- Hazard tiles will be populated by JavaScript -->
+              </div>
+              <button
+                type="button"
+                class="add-level-btn"
+                onclick="addHazardTile()"
+              >
+                + Add Hazard Tile
+              </button>
             </div>
 
-            <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
-                <button type="button" class="demo-btn" onclick="resetToDefaults()" style="width: 100%; background: #f44336; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">
-                    🔄 Reset All Settings to Defaults
-                </button>
+            <div class="form-group">
+              <label for="mergeStrategy">Merge Strategy</label>
+              <select
+                id="mergeStrategy"
+                style="
+                  width: 100%;
+                  padding: 7px 8px;
+                  border: 1px solid #ccc;
+                  border-radius: 4px;
+                  margin-top: 4px;
+                  font-size: 13px;
+                  background: #f9f9f9;
+                "
+              >
+                <option value="max">Max (Highest Risk)</option>
+                <option value="average">Average (Balanced)</option>
+                <option value="weighted">Weighted (By Weights)</option>
+                <option value="priority">Priority (Highest Priority)</option>
+              </select>
             </div>
+
+            <div class="form-group">
+              <label for="gridSize">Grid Size (meters)</label>
+              <input
+                type="number"
+                id="gridSize"
+                value="20"
+                min="10"
+                max="1000"
+              />
+            </div>
+            <div class="form-group">
+              <label for="zoom">Zoom level</label>
+              <input type="number" id="zoom" value="13" min="2" max="20" />
+            </div>
+          </form>
+
+          <div class="hazard-config">
+            <h3>Hazard Configuration</h3>
+            <div class="form-group">
+              <label for="hazardName">Hazard Name</label>
+              <input type="text" id="hazardName" value="House collapse" />
+            </div>
+
+            <div class="form-group">
+              <label>Risk Levels</label>
+              <div id="riskLevels">
+                <!-- Risk levels will be populated by JavaScript -->
+              </div>
+              <button
+                type="button"
+                class="add-level-btn"
+                onclick="addRiskLevel()"
+              >
+                + Add Level
+              </button>
+            </div>
+
+            <div class="water-colors">
+              <h4>Water Colors</h4>
+              <div id="waterColors" class="color-list">
+                <!-- Water colors will be populated by JavaScript -->
+              </div>
+              <button
+                type="button"
+                class="add-color-btn"
+                onclick="addWaterColor()"
+              >
+                + Add Color
+              </button>
+            </div>
+          </div>
+
+           <div
+             class="form-group"
+             style="
+               margin-top: 30px;
+               padding-top: 20px;
+               border-top: 2px solid #e0e0e0;
+             "
+           >
+             <button
+               type="button"
+               class="demo-btn"
+               onclick="loadTsunamiConfig()"
+               style="
+                 width: 100%;
+                 background: #2196f3;
+                 color: white;
+                 border: none;
+                 padding: 12px;
+                 border-radius: 6px;
+                 cursor: pointer;
+                 font-size: 14px;
+                 font-weight: bold;
+                 margin-bottom: 10px;
+               "
+             >
+               🌊 Load Tsunami Config
+             </button>
+             <button
+               type="button"
+               class="demo-btn"
+               onclick="resetToDefaults()"
+               style="
+                 width: 100%;
+                 background: #f44336;
+                 color: white;
+                 border: none;
+                 padding: 12px;
+                 border-radius: 6px;
+                 cursor: pointer;
+                 font-size: 14px;
+                 font-weight: bold;
+               "
+             >
+               🔄 Reset All Settings to Defaults
+             </button>
+           </div>
         </div>
 
-        <div class="tab-content" id="tabDemo" style="display:none;">
-            <div class="demo-controls">
-                <h3>Algorithm Demo</h3>
-                <p>Click on a polygon to start the algorithm visualization</p>
+        <div class="tab-content" id="tabDemo" style="display: none">
+          <div class="demo-controls">
+            <h3>Algorithm Demo</h3>
+            <p>Click on a polygon to start the algorithm visualization</p>
 
-                <div class="demo-steps">
-                    <div class="step-item" id="step1">
-                        <span class="step-number">1</span>
-                        <span class="step-text">Bounding Box</span>
-                    </div>
-                    <div class="step-item" id="step2">
-                        <span class="step-number">2</span>
-                        <span class="step-text">Grid Points</span>
-                    </div>
-                    <div class="step-item" id="step3">
-                        <span class="step-number">3</span>
-                        <span class="step-text">Filter Inside</span>
-                    </div>
-                    <div class="step-item" id="step4">
-                        <span class="step-number">4</span>
-                        <span class="step-text">Load Hazard Tiles</span>
-                    </div>
-                    <div class="step-item" id="step5">
-                        <span class="step-number">5</span>
-                        <span class="step-text">Merge Strategy</span>
-                    </div>
-                    <div class="step-item" id="step6">
-                        <span class="step-number">6</span>
-                        <span class="step-text">Risk Analysis</span>
-                    </div>
-                </div>
-
-                <div class="demo-controls-buttons">
-                    <button type="button" class="demo-btn" onclick="startAlgorithmDemo()">Start Demo</button>
-                    <button type="button" class="demo-btn" onclick="resetAlgorithmDemo()">Reset</button>
-                    <button type="button" class="demo-btn" onclick="nextAlgorithmStep()">Next Step</button>
-                </div>
-
-                <div class="demo-info">
-                    <div id="demoDescription">Click "Start Demo" to begin the algorithm visualization</div>
-                    <div id="demoStats"></div>
-                </div>
+            <div class="demo-steps">
+              <div class="step-item" id="step1">
+                <span class="step-number">1</span>
+                <span class="step-text">Bounding Box</span>
+              </div>
+              <div class="step-item" id="step2">
+                <span class="step-number">2</span>
+                <span class="step-text">Grid Points</span>
+              </div>
+              <div class="step-item" id="step3">
+                <span class="step-number">3</span>
+                <span class="step-text">Filter Inside</span>
+              </div>
+              <div class="step-item" id="step4">
+                <span class="step-number">4</span>
+                <span class="step-text">Load Hazard Tiles</span>
+              </div>
+              <div class="step-item" id="step5">
+                <span class="step-number">5</span>
+                <span class="step-text">Merge Strategy</span>
+              </div>
+              <div class="step-item" id="step6">
+                <span class="step-number">6</span>
+                <span class="step-text">Risk Analysis</span>
+              </div>
             </div>
+
+            <div class="demo-controls-buttons">
+              <button
+                type="button"
+                class="demo-btn"
+                onclick="startAlgorithmDemo()"
+              >
+                Start Demo
+              </button>
+              <button
+                type="button"
+                class="demo-btn"
+                onclick="resetAlgorithmDemo()"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                class="demo-btn"
+                onclick="nextAlgorithmStep()"
+              >
+                Next Step
+              </button>
+            </div>
+
+            <div class="demo-info">
+              <div id="demoDescription">
+                Click "Start Demo" to begin the algorithm visualization
+              </div>
+              <div id="demoStats"></div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
-</div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="https://unpkg.com/leaflet-geometryutil@0.10.0/src/leaflet.geometryutil.js"></script>
-<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
-<script>
-// --- Tab logic ---
-function showTab(tab) {
-    document.getElementById('tabGeoJson').style.display = tab === 'geojson' ? '' : 'none';
-    document.getElementById('tabConfig').style.display = tab === 'config' ? '' : 'none';
-    document.getElementById('tabDemo').style.display = tab === 'demo' ? '' : 'none';
-    document.getElementById('tabGeoJsonBtn').classList.toggle('active', tab === 'geojson');
-    document.getElementById('tabConfigBtn').classList.toggle('active', tab === 'config');
-    document.getElementById('tabDemoBtn').classList.toggle('active', tab === 'demo');
-}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/leaflet-geometryutil@0.10.0/src/leaflet.geometryutil.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script>
+      // --- Tab logic ---
+      function showTab(tab) {
+        document.getElementById('tabGeoJson').style.display =
+          tab === 'geojson' ? '' : 'none';
+        document.getElementById('tabConfig').style.display =
+          tab === 'config' ? '' : 'none';
+        document.getElementById('tabDemo').style.display =
+          tab === 'demo' ? '' : 'none';
+        document
+          .getElementById('tabGeoJsonBtn')
+          .classList.toggle('active', tab === 'geojson');
+        document
+          .getElementById('tabConfigBtn')
+          .classList.toggle('active', tab === 'config');
+        document
+          .getElementById('tabDemoBtn')
+          .classList.toggle('active', tab === 'demo');
+      }
 
-// --- Map & Draw logic ---
-let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
-let hazardLayers = [];
-let isAnalyzing = false; // Prevent multiple API calls
-let isImporting = false; // Prevent multiple imports
+      // --- Map & Draw logic ---
+      let map,
+        drawnItems,
+        drawControl,
+        ignoreGeoJsonChange = false;
+      let hazardLayers = [];
+      let isAnalyzing = false; // Prevent multiple API calls
+      let isImporting = false; // Prevent multiple imports
 
-// --- Algorithm Demo Variables ---
-let demoLayers = {
-    boundingBox: null,
-    gridPoints: null,
-    filteredPoints: null,
-    riskPoints: null
-};
-let currentDemoStep = 0;
-let selectedPolygon = null;
+      // --- Algorithm Demo Variables ---
+      let demoLayers = {
+        boundingBox: null,
+        gridPoints: null,
+        filteredPoints: null,
+        riskPoints: null,
+      };
+      let currentDemoStep = 0;
+      let selectedPolygon = null;
 
-// --- Default Configuration ---
-const DEFAULT_CONFIG = {
-    hazardConfig: {
-        name: "House collapse",
+      const TsunamiConfig = {
+        name: 'Flood Depth (GSI Japan)',
         levels: {
-            "0": { name: "level0", color: "#FFFFFF", description: "0m" },
-            "1": { name: "level1", color: "#FF0000", description: "Risk of flooding" }
+          0: { name: 'level0', color: '#FFFFFF', description: '0m' },
+          1: { name: 'level1', color: '#FFFFB3', description: '<0.3m' },
+          2: { name: 'level2', color: '#F7F5A9', description: '<0.5m' },
+          3: { name: 'level3', color: '#F8E1A6', description: '0.5~1m' },
+          4: { name: 'level4', color: '#FFD8C0', description: '0.5~3m' },
+          5: { name: 'level5', color: '#FFB7B7', description: '3~5m' },
+          6: { name: 'level6', color: '#FF9191', description: '5~10m' },
+          7: { name: 'level7', color: '#F285C9', description: '10~20m' },
+          8: { name: 'level8', color: '#DC7ADC', description: '>20m' },
         },
-        waterColors: ["#bed2ff"]
-    },
-    hazardTiles: [
-        {
-            url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_hanran_data/{z}/{x}/{y}.png",
-            name: "House collapse 0",
+        waterColors: ['#bed2ff'],
+      };
+
+      const TSUNAMI_TILE_URL = 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
+
+      // --- Default Configuration ---
+      const DEFAULT_CONFIG = {
+        hazardConfig: {
+          name: 'House collapse',
+          levels: {
+            0: { name: 'level0', color: '#FFFFFF', description: '0m' },
+            1: {
+              name: 'level1',
+              color: '#FF0000',
+              description: 'Risk of flooding',
+            },
+          },
+          waterColors: ['#bed2ff'],
+        },
+        hazardTiles: [
+          {
+            url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_hanran_data/{z}/{x}/{y}.png',
+            name: 'House collapse 0',
             weight: 1.0,
             priority: 1,
-            show: true
-        },
-        {
-            url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_kagan_data/{z}/{x}/{y}.png",
-            name: "House collapse 1",
+            show: true,
+          },
+          {
+            url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_kagan_data/{z}/{x}/{y}.png',
+            name: 'House collapse 1',
             weight: 1.0,
             priority: 1,
-            show: true
-        }
-    ],
-    formSettings: {
-        gridSize: 20,
-        zoom: 13,
-        hazardName: "House collapse",
-        mergeStrategy: "max"
-    },
-    mapSettings: {
-        center: [35.00987961803894, 138.38045440614223],
-        zoom: 13
-    }
-};
+            show: true,
+          },
+        ],
+        formSettings: {
+          gridSize: 20,
+          zoom: 13,
+          hazardName: 'House collapse',
+          mergeStrategy: 'max',
+        },
+        mapSettings: {
+          center: [35.00987961803894, 138.38045440614223],
+          zoom: 13,
+        },
+      };
 
-// --- Current Configuration ---
-let hazardConfig = { ...DEFAULT_CONFIG.hazardConfig };
-let hazardTiles = [...DEFAULT_CONFIG.hazardTiles];
+      // --- Current Configuration ---
+      let hazardConfig = { ...DEFAULT_CONFIG.hazardConfig };
+      let hazardTiles = [...DEFAULT_CONFIG.hazardTiles];
 
-// --- Initialize Form with Default Values ---
-function initializeFormWithDefaults() {
-    document.getElementById('gridSize').value = DEFAULT_CONFIG.formSettings.gridSize;
-    document.getElementById('zoom').value = DEFAULT_CONFIG.formSettings.zoom;
-    document.getElementById('hazardName').value = DEFAULT_CONFIG.formSettings.hazardName;
-    document.getElementById('mergeStrategy').value = DEFAULT_CONFIG.formSettings.mergeStrategy;
-}
+      // --- Initialize Form with Default Values ---
+      function initializeFormWithDefaults() {
+        document.getElementById('gridSize').value =
+          DEFAULT_CONFIG.formSettings.gridSize;
+        document.getElementById('zoom').value =
+          DEFAULT_CONFIG.formSettings.zoom;
+        document.getElementById('hazardName').value =
+          DEFAULT_CONFIG.formSettings.hazardName;
+        document.getElementById('mergeStrategy').value =
+          DEFAULT_CONFIG.formSettings.mergeStrategy;
+      }
 
-function renderRiskLevels() {
-    const container = document.getElementById('riskLevels');
-    container.innerHTML = '';
+      function renderRiskLevels() {
+        const container = document.getElementById('riskLevels');
+        container.innerHTML = '';
 
-    Object.entries(hazardConfig.levels).forEach(([level, config]) => {
-        const levelItem = document.createElement('div');
-        levelItem.className = 'level-item';
-        levelItem.innerHTML = `
+        Object.entries(hazardConfig.levels).forEach(([level, config]) => {
+          const levelItem = document.createElement('div');
+          levelItem.className = 'level-item';
+          levelItem.innerHTML = `
             <div class="level-color" style="background-color: ${config.color}"></div>
             <div class="level-inputs">
                 <input type="text" placeholder="Name" value="${config.name}" onchange="updateLevel('${level}', 'name', this.value)">
@@ -610,83 +784,85 @@ function renderRiskLevels() {
                 <button type="button" class="remove-level-btn" onclick="removeLevel('${level}')">×</button>
             </div>
         `;
-        container.appendChild(levelItem);
-    });
-}
+          container.appendChild(levelItem);
+        });
+      }
 
-function renderWaterColors() {
-    const container = document.getElementById('waterColors');
-    container.innerHTML = '';
+      function renderWaterColors() {
+        const container = document.getElementById('waterColors');
+        container.innerHTML = '';
 
-    hazardConfig.waterColors.forEach((color, index) => {
-        const colorItem = document.createElement('div');
-        colorItem.className = 'color-item';
-        colorItem.innerHTML = `
+        hazardConfig.waterColors.forEach((color, index) => {
+          const colorItem = document.createElement('div');
+          colorItem.className = 'color-item';
+          colorItem.innerHTML = `
             <input type="color" value="${color}" onchange="updateWaterColor(${index}, this.value)">
             <button type="button" class="remove-color-btn" onclick="removeWaterColor(${index})">×</button>
         `;
-        container.appendChild(colorItem);
-    });
-}
+          container.appendChild(colorItem);
+        });
+      }
 
-function updateLevel(level, field, value) {
-    hazardConfig.levels[level][field] = value;
-    renderRiskLevels();
-    saveConfigToLocalStorage();
-}
+      function updateLevel(level, field, value) {
+        hazardConfig.levels[level][field] = value;
+        renderRiskLevels();
+        saveConfigToLocalStorage();
+      }
 
-function removeLevel(level) {
-    delete hazardConfig.levels[level];
-    renderRiskLevels();
-    saveConfigToLocalStorage();
-}
+      function removeLevel(level) {
+        delete hazardConfig.levels[level];
+        renderRiskLevels();
+        saveConfigToLocalStorage();
+      }
 
-function addRiskLevel() {
-    const newLevel = Object.keys(hazardConfig.levels).length;
-    hazardConfig.levels[newLevel] = {
-        name: `level${newLevel}`,
-        color: DEFAULT_CONFIG.hazardConfig.levels["0"].color,
-        description: "New level"
-    };
-    renderRiskLevels();
-    saveConfigToLocalStorage();
-}
+      function addRiskLevel() {
+        const newLevel = Object.keys(hazardConfig.levels).length;
+        hazardConfig.levels[newLevel] = {
+          name: `level${newLevel}`,
+          color: DEFAULT_CONFIG.hazardConfig.levels['0'].color,
+          description: 'New level',
+        };
+        renderRiskLevels();
+        saveConfigToLocalStorage();
+      }
 
-function updateWaterColor(index, color) {
-    hazardConfig.waterColors[index] = color;
-    renderWaterColors();
-    saveConfigToLocalStorage();
-}
+      function updateWaterColor(index, color) {
+        hazardConfig.waterColors[index] = color;
+        renderWaterColors();
+        saveConfigToLocalStorage();
+      }
 
-function removeWaterColor(index) {
-    hazardConfig.waterColors.splice(index, 1);
-    renderWaterColors();
-    saveConfigToLocalStorage();
-}
+      function removeWaterColor(index) {
+        hazardConfig.waterColors.splice(index, 1);
+        renderWaterColors();
+        saveConfigToLocalStorage();
+      }
 
-function addWaterColor() {
-    hazardConfig.waterColors.push(DEFAULT_CONFIG.hazardConfig.waterColors[0]);
-    renderWaterColors();
-    saveConfigToLocalStorage();
-}
+      function addWaterColor() {
+        hazardConfig.waterColors.push(
+          DEFAULT_CONFIG.hazardConfig.waterColors[0]
+        );
+        renderWaterColors();
+        saveConfigToLocalStorage();
+      }
 
-function getHazardConfig() {
-    return {
-        name: document.getElementById('hazardName').value,
-        levels: { ...hazardConfig.levels },
-        waterColors: [...hazardConfig.waterColors]
-    };
-}
+      function getHazardConfig() {
+        return {
+          name: document.getElementById('hazardName').value,
+          levels: { ...hazardConfig.levels },
+          waterColors: [...hazardConfig.waterColors],
+        };
+      }
 
-// --- Hazard Tiles Management ---
-function renderHazardTiles() {
-    const container = document.getElementById('hazardTilesContainer');
-    container.innerHTML = '';
+      // --- Hazard Tiles Management ---
+      function renderHazardTiles() {
+        const container = document.getElementById('hazardTilesContainer');
+        container.innerHTML = '';
 
-    hazardTiles.forEach((tile, index) => {
-        const tileItem = document.createElement('div');
-        tileItem.className = 'hazard-tile-item';
-        tileItem.innerHTML = `
+        hazardTiles.forEach((tile, index) => {
+          const tileItem = document.createElement('div');
+          tileItem.className = 'hazard-tile-item';
+          tileItem.innerHTML = `
             <div class="hazard-tile-header">
                 <label>Hazard Tile ${index + 1}</label>
                 <div class="hazard-tile-controls">
@@ -702,393 +878,481 @@ function renderHazardTiles() {
             <input type="text" class="hazard-tile-name" placeholder="Tile Name" value="${tile.name}" onchange="updateHazardTile(${index}, 'name', this.value)">
             <input type="text" class="hazard-tile-url" placeholder="Tile URL" value="${tile.url}" onchange="updateHazardTile(${index}, 'url', this.value)">
         `;
-        container.appendChild(tileItem);
-    });
-}
+          container.appendChild(tileItem);
+        });
+      }
 
-function updateHazardTile(index, field, value) {
-    hazardTiles[index][field] = value;
-    renderHazardTiles();
-    updateHazardLayers();
-    saveConfigToLocalStorage();
-}
-
-function removeHazardTile(index) {
-    hazardTiles.splice(index, 1);
-    renderHazardTiles();
-    updateHazardLayers();
-    saveConfigToLocalStorage();
-}
-
-function addHazardTile() {
-    hazardTiles.push({
-        url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png",
-        name: `Hazard Tile ${hazardTiles.length + 1}`,
-        weight: DEFAULT_CONFIG.hazardTiles[0].weight,
-        priority: DEFAULT_CONFIG.hazardTiles[0].priority,
-        show: DEFAULT_CONFIG.hazardTiles[0].show
-    });
-    renderHazardTiles();
-    updateHazardLayers();
-    saveConfigToLocalStorage();
-}
-
-function getHazardTiles() {
-    return hazardTiles.filter(tile => tile.show).map(tile => ({
-        url: tile.url,
-        name: tile.name,
-        weight: tile.weight,
-        priority: tile.priority
-    }));
-}
-
-// --- Reset to Defaults Function ---
-function resetToDefaults() {
-    if (confirm('Are you sure you want to reset ALL settings to default values? This will clear all your current configurations and reset the map view.')) {
-        // Reset configurations to defaults
-        hazardConfig = { ...DEFAULT_CONFIG.hazardConfig };
-        hazardTiles = [...DEFAULT_CONFIG.hazardTiles];
-
-        // Reset form inputs to defaults
-        document.getElementById('gridSize').value = DEFAULT_CONFIG.formSettings.gridSize;
-        document.getElementById('zoom').value = DEFAULT_CONFIG.formSettings.zoom;
-        document.getElementById('hazardName').value = DEFAULT_CONFIG.formSettings.hazardName;
-        document.getElementById('mergeStrategy').value = DEFAULT_CONFIG.formSettings.mergeStrategy;
-
-        // Reset map view to default
-        if (map) {
-            map.setView(DEFAULT_CONFIG.mapSettings.center, DEFAULT_CONFIG.mapSettings.zoom);
-        }
-
-        // Clear all drawn items
-        if (drawnItems) {
-            drawnItems.clearLayers();
-        }
-
-        // Clear GeoJSON textarea
-        document.getElementById('geojsonText').value = '';
-
-        // Reset algorithm demo
-        resetAlgorithmDemo();
-        selectedPolygon = null;
-
-        // Re-render all UI components
-        renderRiskLevels();
-        renderWaterColors();
+      function updateHazardTile(index, field, value) {
+        hazardTiles[index][field] = value;
         renderHazardTiles();
-
-        // Update map layers
         updateHazardLayers();
-
-        // Clear localStorage and save new defaults
-        localStorage.removeItem('hazardRiskConfig');
         saveConfigToLocalStorage();
+      }
 
-        // Show success message
-        alert('All settings have been reset to default values!\n\n- Map view reset to default location\n- All drawn polygons cleared\n- All configurations reset to defaults');
-    }
-}
+      function removeHazardTile(index) {
+        hazardTiles.splice(index, 1);
+        renderHazardTiles();
+        updateHazardLayers();
+        saveConfigToLocalStorage();
+      }
 
-// --- Algorithm Demo Functions ---
-function startAlgorithmDemo() {
-    if (!selectedPolygon) {
-        alert('Please click on a polygon first to start the demo');
-        return;
-    }
+      function addHazardTile() {
+        hazardTiles.push({
+          url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
+          name: `Hazard Tile ${hazardTiles.length + 1}`,
+          weight: DEFAULT_CONFIG.hazardTiles[0].weight,
+          priority: DEFAULT_CONFIG.hazardTiles[0].priority,
+          show: DEFAULT_CONFIG.hazardTiles[0].show,
+        });
+        renderHazardTiles();
+        updateHazardLayers();
+        saveConfigToLocalStorage();
+      }
 
-    resetAlgorithmDemo();
-    currentDemoStep = 1;
-    updateDemoStep();
-    showBoundingBox();
-}
+      function getHazardTiles() {
+        return hazardTiles
+          .filter(tile => tile.show)
+          .map(tile => ({
+            url: tile.url,
+            name: tile.name,
+            weight: tile.weight,
+            priority: tile.priority,
+          }));
+      }
 
-function resetAlgorithmDemo() {
-    // Remove all demo layers
-    Object.values(demoLayers).forEach(layer => {
-        if (layer) {
-            map.removeLayer(layer);
+       // --- Load Tsunami Config Function ---
+       function loadTsunamiConfig() {
+         if (
+           confirm(
+             'Load Tsunami configuration? This will replace your current hazard configuration with tsunami flood depth settings.'
+           )
+         ) {
+           // Load tsunami configuration
+           hazardConfig = { ...TsunamiConfig };
+
+           // Create tsunami hazard tiles
+           hazardTiles = [
+             {
+               url: TSUNAMI_TILE_URL,
+               name: 'Tsunami Flood Depth',
+               weight: 1.0,
+               priority: 1,
+               show: true,
+             }
+           ];
+
+           // Update form inputs for tsunami
+           document.getElementById('hazardName').value = TsunamiConfig.name;
+           document.getElementById('mergeStrategy').value = 'max';
+
+           // Re-render all UI components
+           renderRiskLevels();
+           renderWaterColors();
+           renderHazardTiles();
+
+           // Update map layers
+           updateHazardLayers();
+
+           // Save to localStorage
+           saveConfigToLocalStorage();
+
+           // Show success message
+           alert(
+             'Tsunami configuration loaded successfully!\n\n- Hazard name: Flood Depth (GSI Japan)\n- Risk levels: 0-8 (0m to >20m)\n- Single tsunami tile source\n- Merge strategy: Max'
+           );
+         }
+       }
+
+       // --- Reset to Defaults Function ---
+       function resetToDefaults() {
+         if (
+           confirm(
+             'Are you sure you want to reset ALL settings to default values? This will clear all your current configurations and reset the map view.'
+           )
+         ) {
+           // Reset configurations to defaults
+           hazardConfig = { ...DEFAULT_CONFIG.hazardConfig };
+           hazardTiles = [...DEFAULT_CONFIG.hazardTiles];
+
+           // Reset form inputs to defaults
+           document.getElementById('gridSize').value =
+             DEFAULT_CONFIG.formSettings.gridSize;
+           document.getElementById('zoom').value =
+             DEFAULT_CONFIG.formSettings.zoom;
+           document.getElementById('hazardName').value =
+             DEFAULT_CONFIG.formSettings.hazardName;
+           document.getElementById('mergeStrategy').value =
+             DEFAULT_CONFIG.formSettings.mergeStrategy;
+
+           // Reset map view to default
+           if (map) {
+             map.setView(
+               DEFAULT_CONFIG.mapSettings.center,
+               DEFAULT_CONFIG.mapSettings.zoom
+             );
+           }
+
+           // Clear all drawn items
+           if (drawnItems) {
+             drawnItems.clearLayers();
+           }
+
+           // Clear GeoJSON textarea
+           document.getElementById('geojsonText').value = '';
+
+           // Reset algorithm demo
+           resetAlgorithmDemo();
+           selectedPolygon = null;
+
+           // Re-render all UI components
+           renderRiskLevels();
+           renderWaterColors();
+           renderHazardTiles();
+
+           // Update map layers
+           updateHazardLayers();
+
+           // Clear localStorage and save new defaults
+           localStorage.removeItem('hazardRiskConfig');
+           saveConfigToLocalStorage();
+
+           // Show success message
+           alert(
+             'All settings have been reset to default values!\n\n- Map view reset to default location\n- All drawn polygons cleared\n- All configurations reset to defaults'
+           );
+         }
+       }
+
+      // --- Algorithm Demo Functions ---
+      function startAlgorithmDemo() {
+        if (!selectedPolygon) {
+          alert('Please click on a polygon first to start the demo');
+          return;
         }
-    });
-    demoLayers = {
-        boundingBox: null,
-        gridPoints: null,
-        filteredPoints: null,
-        riskPoints: null
-    };
 
-    currentDemoStep = 0;
-    updateDemoStep();
-    document.getElementById('demoDescription').textContent = 'Click "Start Demo" to begin the algorithm visualization';
-    document.getElementById('demoStats').innerHTML = '';
-}
-
-function nextAlgorithmStep() {
-    if (currentDemoStep < 6) {
-        currentDemoStep++;
+        resetAlgorithmDemo();
+        currentDemoStep = 1;
         updateDemoStep();
+        showBoundingBox();
+      }
 
-        switch (currentDemoStep) {
+      function resetAlgorithmDemo() {
+        // Remove all demo layers
+        Object.values(demoLayers).forEach(layer => {
+          if (layer) {
+            map.removeLayer(layer);
+          }
+        });
+        demoLayers = {
+          boundingBox: null,
+          gridPoints: null,
+          filteredPoints: null,
+          riskPoints: null,
+        };
+
+        currentDemoStep = 0;
+        updateDemoStep();
+        document.getElementById('demoDescription').textContent =
+          'Click "Start Demo" to begin the algorithm visualization';
+        document.getElementById('demoStats').innerHTML = '';
+      }
+
+      function nextAlgorithmStep() {
+        if (currentDemoStep < 6) {
+          currentDemoStep++;
+          updateDemoStep();
+
+          switch (currentDemoStep) {
             case 2:
-                showGridPoints();
-                break;
+              showGridPoints();
+              break;
             case 3:
-                showFilteredPoints();
-                break;
+              showFilteredPoints();
+              break;
             case 4:
-                showLoadHazardTiles();
-                break;
+              showLoadHazardTiles();
+              break;
             case 5:
-                showMergeStrategy();
-                break;
+              showMergeStrategy();
+              break;
             case 6:
-                showRiskAnalysis();
-                break;
+              showRiskAnalysis();
+              break;
+          }
         }
-    }
-}
+      }
 
-function updateDemoStep() {
-    // Update step indicators
-    for (let i = 1; i <= 6; i++) {
-        const stepElement = document.getElementById(`step${i}`);
-        stepElement.classList.remove('active', 'completed');
+      function updateDemoStep() {
+        // Update step indicators
+        for (let i = 1; i <= 6; i++) {
+          const stepElement = document.getElementById(`step${i}`);
+          stepElement.classList.remove('active', 'completed');
 
-        if (i < currentDemoStep) {
+          if (i < currentDemoStep) {
             stepElement.classList.add('completed');
-        } else if (i === currentDemoStep) {
+          } else if (i === currentDemoStep) {
             stepElement.classList.add('active');
+          }
         }
-    }
-}
+      }
 
-function showBoundingBox() {
-    if (!selectedPolygon) return;
+      function showBoundingBox() {
+        if (!selectedPolygon) return;
 
-    const bounds = selectedPolygon.getBounds();
-    demoLayers.boundingBox = L.rectangle(bounds, {
-        color: '#ff4444',
-        weight: 3,
-        fillOpacity: 0.1,
-        fillColor: '#ff4444'
-    }).addTo(map);
+        const bounds = selectedPolygon.getBounds();
+        demoLayers.boundingBox = L.rectangle(bounds, {
+          color: '#ff4444',
+          weight: 3,
+          fillOpacity: 0.1,
+          fillColor: '#ff4444',
+        }).addTo(map);
 
-    document.getElementById('demoDescription').textContent = 'Step 1: Bounding Box - The algorithm first calculates the bounding box that contains the entire polygon area.';
-    document.getElementById('demoStats').innerHTML = `
+        document.getElementById('demoDescription').textContent =
+          'Step 1: Bounding Box - The algorithm first calculates the bounding box that contains the entire polygon area.';
+        document.getElementById('demoStats').innerHTML = `
         <strong>Bounding Box:</strong><br/>
         North: ${bounds.getNorth().toFixed(6)}<br/>
         South: ${bounds.getSouth().toFixed(6)}<br/>
         East: ${bounds.getEast().toFixed(6)}<br/>
         West: ${bounds.getWest().toFixed(6)}
     `;
-}
+      }
 
-function getCirclePolygonGeoJson(circle) {
-    // Dùng turf.circle để tạo polygon GeoJSON từ L.Circle
-    const center = [circle.getLatLng().lng, circle.getLatLng().lat];
-    const radius = circle.getRadius() / 1000; // turf.circle nhận đơn vị km
-    return turf.circle(center, radius, { steps: 64, units: 'kilometers' }).geometry;
-}
+      function getCirclePolygonGeoJson(circle) {
+        // Dùng turf.circle để tạo polygon GeoJSON từ L.Circle
+        const center = [circle.getLatLng().lng, circle.getLatLng().lat];
+        const radius = circle.getRadius() / 1000; // turf.circle nhận đơn vị km
+        return turf.circle(center, radius, { steps: 64, units: 'kilometers' })
+          .geometry;
+      }
 
-function showGridPoints() {
-    if (!selectedPolygon) return;
+      function showGridPoints() {
+        if (!selectedPolygon) return;
 
-    let polygonGeoJson;
-    if (selectedPolygon instanceof L.Circle) {
-        polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
-    } else {
-        polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
-    }
-    const gridSize = parseInt(document.getElementById('gridSize').value);
+        let polygonGeoJson;
+        if (selectedPolygon instanceof L.Circle) {
+          polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
+        } else {
+          polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
+        }
+        const gridSize = parseInt(document.getElementById('gridSize').value);
 
-    // Tạo lưới toàn bộ bounding box (không mask)
-    const bbox = turf.bbox(polygonGeoJson);
-    const pointGrids = turf.pointGrid(bbox, gridSize, {
-        units: 'meters'
-    });
+        // Tạo lưới toàn bộ bounding box (không mask)
+        const bbox = turf.bbox(polygonGeoJson);
+        const pointGrids = turf.pointGrid(bbox, gridSize, {
+          units: 'meters',
+        });
 
-    const points = [];
-    for (const feature of pointGrids.features) {
-        const [lng, lat] = feature.geometry.coordinates;
-        points.push([lat, lng]);
-    }
+        const points = [];
+        for (const feature of pointGrids.features) {
+          const [lng, lat] = feature.geometry.coordinates;
+          points.push([lat, lng]);
+        }
 
-    demoLayers.gridPoints = L.layerGroup(
-        points.map(point => L.circleMarker(point, {
-            radius: 3,
-            color: '#666',
-            fillColor: '#999',
-            fillOpacity: 0.7
-        }))
-    ).addTo(map);
+        demoLayers.gridPoints = L.layerGroup(
+          points.map(point =>
+            L.circleMarker(point, {
+              radius: 3,
+              color: '#666',
+              fillColor: '#999',
+              fillOpacity: 0.7,
+            })
+          )
+        ).addTo(map);
 
-    document.getElementById('demoDescription').textContent = 'Step 2: Grid Points - Creates a uniform grid of points covering the entire bounding box area.';
-    document.getElementById('demoStats').innerHTML = `
+        document.getElementById('demoDescription').textContent =
+          'Step 2: Grid Points - Creates a uniform grid of points covering the entire bounding box area.';
+        document.getElementById('demoStats').innerHTML = `
         <strong>Grid Points:</strong><br/>
         Total Points: ${points.length}<br/>
         Grid Size: ${gridSize}m<br/>
         Coverage: Entire bounding box
     `;
-}
+      }
 
-function showFilteredPoints() {
-    if (!selectedPolygon || !demoLayers.gridPoints) return;
+      function showFilteredPoints() {
+        if (!selectedPolygon || !demoLayers.gridPoints) return;
 
-    let polygonGeoJson;
-    if (selectedPolygon instanceof L.Circle) {
-        polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
-    } else {
-        polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
-    }
-    const filteredPoints = [];
-    const toRemove = [];
-    demoLayers.gridPoints.eachLayer(pointLayer => {
-        const point = pointLayer.getLatLng();
-        const pt = turf.point([point.lng, point.lat]);
-        const inside = turf.booleanPointInPolygon(pt, polygonGeoJson);
-        if (inside) {
+        let polygonGeoJson;
+        if (selectedPolygon instanceof L.Circle) {
+          polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
+        } else {
+          polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
+        }
+        const filteredPoints = [];
+        const toRemove = [];
+        demoLayers.gridPoints.eachLayer(pointLayer => {
+          const point = pointLayer.getLatLng();
+          const pt = turf.point([point.lng, point.lat]);
+          const inside = turf.booleanPointInPolygon(pt, polygonGeoJson);
+          if (inside) {
             filteredPoints.push(point);
             pointLayer.setStyle({
-                color: '#4CAF50',
-                fillColor: '#4CAF50',
-                fillOpacity: 0.8
+              color: '#4CAF50',
+              fillColor: '#4CAF50',
+              fillOpacity: 0.8,
             });
-        } else {
+          } else {
             toRemove.push(pointLayer);
-        }
-    });
-    toRemove.forEach(layer => demoLayers.gridPoints.removeLayer(layer));
+          }
+        });
+        toRemove.forEach(layer => demoLayers.gridPoints.removeLayer(layer));
 
-    document.getElementById('demoDescription').textContent = 'Step 3: Filter Inside - Removes points outside the polygon/circle, keeping only points inside the area of interest.';
-    document.getElementById('demoStats').innerHTML = `
+        document.getElementById('demoDescription').textContent =
+          'Step 3: Filter Inside - Removes points outside the polygon/circle, keeping only points inside the area of interest.';
+        document.getElementById('demoStats').innerHTML = `
         <strong>Filtered Points:</strong><br/>
         Inside Area: ${filteredPoints.length}<br/>
         Outside Area: ${toRemove.length}<br/>
         Total Grid Points: ${filteredPoints.length + toRemove.length}
     `;
-}
+      }
 
-function showLoadHazardTiles() {
-    if (!selectedPolygon) return;
+      function showLoadHazardTiles() {
+        if (!selectedPolygon) return;
 
-    const activeTiles = hazardTiles.filter(tile => tile.show);
-    const tileCount = activeTiles.length;
+        const activeTiles = hazardTiles.filter(tile => tile.show);
+        const tileCount = activeTiles.length;
 
-    document.getElementById('demoDescription').textContent = 'Step 4: Load Hazard Tiles - The algorithm loads multiple hazard tile sources simultaneously for comprehensive risk assessment.';
-    document.getElementById('demoStats').innerHTML = `
+        document.getElementById('demoDescription').textContent =
+          'Step 4: Load Hazard Tiles - The algorithm loads multiple hazard tile sources simultaneously for comprehensive risk assessment.';
+        document.getElementById('demoStats').innerHTML = `
         <strong>Hazard Tiles Loading:</strong><br/>
         Active Tiles: ${tileCount}<br/>
-        ${activeTiles.map((tile, index) =>
-            `Tile ${index + 1}: ${tile.name}<br/>` +
-            `&nbsp;&nbsp;Weight: ${tile.weight}, Priority: ${tile.priority}<br/>`
-        ).join('')}
+        ${activeTiles
+          .map(
+            (tile, index) =>
+              `Tile ${index + 1}: ${tile.name}<br/>` +
+              `&nbsp;&nbsp;Weight: ${tile.weight}, Priority: ${tile.priority}<br/>`
+          )
+          .join('')}
         <br/><strong>Process:</strong><br/>
         • Fetch tiles from all active sources<br/>
         • Load pixel data for each tile<br/>
         • Prepare for risk level extraction
     `;
 
-    // Simulate tile loading by showing tile indicators
-    if (demoLayers.gridPoints) {
-        demoLayers.gridPoints.eachLayer((pointLayer, index) => {
+        // Simulate tile loading by showing tile indicators
+        if (demoLayers.gridPoints) {
+          demoLayers.gridPoints.eachLayer((pointLayer, index) => {
             const point = pointLayer.getLatLng();
             if (selectedPolygon.getBounds().contains(point)) {
-                // Simulate different tile sources with different colors
-                const tileIndex = index % tileCount;
-                const colors = ['#2196F3', '#9C27B0', '#FF5722', '#4CAF50', '#FF9800'];
-                const color = colors[tileIndex] || '#666';
-                pointLayer.setStyle({
-                    color: color,
-                    fillColor: color,
-                    fillOpacity: 0.6
-                });
+              // Simulate different tile sources with different colors
+              const tileIndex = index % tileCount;
+              const colors = [
+                '#2196F3',
+                '#9C27B0',
+                '#FF5722',
+                '#4CAF50',
+                '#FF9800',
+              ];
+              const color = colors[tileIndex] || '#666';
+              pointLayer.setStyle({
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.6,
+              });
             }
-        });
-    }
-}
+          });
+        }
+      }
 
-function showMergeStrategy() {
-    if (!selectedPolygon) return;
+      function showMergeStrategy() {
+        if (!selectedPolygon) return;
 
-    const mergeStrategy = document.getElementById('mergeStrategy').value;
-    const activeTiles = hazardTiles.filter(tile => tile.show);
+        const mergeStrategy = document.getElementById('mergeStrategy').value;
+        const activeTiles = hazardTiles.filter(tile => tile.show);
 
-    let strategyDescription = '';
-    let strategyProcess = '';
+        let strategyDescription = '';
+        let strategyProcess = '';
 
-    switch (mergeStrategy) {
-        case 'max':
-            strategyDescription = 'Maximum Risk Strategy - Returns the highest risk level from all tiles (safest approach)';
-            strategyProcess = '• Compare risk levels from all tiles<br/>• Select the highest risk level<br/>• Use when safety is priority';
+        switch (mergeStrategy) {
+          case 'max':
+            strategyDescription =
+              'Maximum Risk Strategy - Returns the highest risk level from all tiles (safest approach)';
+            strategyProcess =
+              '• Compare risk levels from all tiles<br/>• Select the highest risk level<br/>• Use when safety is priority';
             break;
-        case 'average':
-            strategyDescription = 'Average Risk Strategy - Calculates average risk level from all tiles (balanced approach)';
-            strategyProcess = '• Sum all risk levels<br/>• Divide by number of tiles<br/>• Round to nearest integer<br/>• Use when all sources are equally reliable';
+          case 'average':
+            strategyDescription =
+              'Average Risk Strategy - Calculates average risk level from all tiles (balanced approach)';
+            strategyProcess =
+              '• Sum all risk levels<br/>• Divide by number of tiles<br/>• Round to nearest integer<br/>• Use when all sources are equally reliable';
             break;
-        case 'weighted':
-            strategyDescription = 'Weighted Risk Strategy - Calculates weighted average based on tile weights';
-            strategyProcess = '• Multiply each risk level by its weight<br/>• Sum weighted values<br/>• Divide by total weight<br/>• Use when sources have different reliability';
+          case 'weighted':
+            strategyDescription =
+              'Weighted Risk Strategy - Calculates weighted average based on tile weights';
+            strategyProcess =
+              '• Multiply each risk level by its weight<br/>• Sum weighted values<br/>• Divide by total weight<br/>• Use when sources have different reliability';
             break;
-        case 'priority':
-            strategyDescription = 'Priority Risk Strategy - Uses risk level from highest priority tile';
-            strategyProcess = '• Find tile with highest priority<br/>• Use its risk level<br/>• Use when one source is more authoritative';
+          case 'priority':
+            strategyDescription =
+              'Priority Risk Strategy - Uses risk level from highest priority tile';
+            strategyProcess =
+              '• Find tile with highest priority<br/>• Use its risk level<br/>• Use when one source is more authoritative';
             break;
-    }
+        }
 
-    document.getElementById('demoDescription').textContent = `Step 5: Merge Strategy - ${strategyDescription}`;
-    document.getElementById('demoStats').innerHTML = `
+        document.getElementById('demoDescription').textContent =
+          `Step 5: Merge Strategy - ${strategyDescription}`;
+        document.getElementById('demoStats').innerHTML = `
         <strong>Current Strategy: ${mergeStrategy.toUpperCase()}</strong><br/>
         ${strategyDescription}<br/><br/>
         <strong>Process:</strong><br/>
         ${strategyProcess}<br/><br/>
         <strong>Tile Weights & Priorities:</strong><br/>
-        ${activeTiles.map((tile, index) =>
-            `Tile ${index + 1}: Weight=${tile.weight}, Priority=${tile.priority}`
-        ).join('<br/>')}
+        ${activeTiles
+          .map(
+            (tile, index) =>
+              `Tile ${index + 1}: Weight=${tile.weight}, Priority=${tile.priority}`
+          )
+          .join('<br/>')}
     `;
 
-    // Simulate merge strategy by showing final risk colors
-    if (demoLayers.gridPoints) {
-        demoLayers.gridPoints.eachLayer(pointLayer => {
+        // Simulate merge strategy by showing final risk colors
+        if (demoLayers.gridPoints) {
+          demoLayers.gridPoints.eachLayer(pointLayer => {
             const point = pointLayer.getLatLng();
             if (selectedPolygon.getBounds().contains(point)) {
-                // Simulate final merged risk level
-                let finalRisk = 0;
+              // Simulate final merged risk level
+              let finalRisk = 0;
 
-                switch (mergeStrategy) {
-                    case 'max':
-                        finalRisk = Math.max(1, Math.floor(Math.random() * 3) + 1);
-                        break;
-                    case 'average':
-                        finalRisk = Math.floor(Math.random() * 2) + 1;
-                        break;
-                    case 'weighted':
-                        finalRisk = Math.floor(Math.random() * 2) + 1;
-                        break;
-                    case 'priority':
-                        finalRisk = Math.floor(Math.random() * 3) + 1;
-                        break;
-                }
+              switch (mergeStrategy) {
+                case 'max':
+                  finalRisk = Math.max(1, Math.floor(Math.random() * 3) + 1);
+                  break;
+                case 'average':
+                  finalRisk = Math.floor(Math.random() * 2) + 1;
+                  break;
+                case 'weighted':
+                  finalRisk = Math.floor(Math.random() * 2) + 1;
+                  break;
+                case 'priority':
+                  finalRisk = Math.floor(Math.random() * 3) + 1;
+                  break;
+              }
 
-                // Color based on final risk level
-                if (finalRisk === 0) {
-                    pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
-                } else if (finalRisk === 1) {
-                    pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
-                } else if (finalRisk === 2) {
-                    pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
-                } else {
-                    pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
-                }
+              // Color based on final risk level
+              if (finalRisk === 0) {
+                pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
+              } else if (finalRisk === 1) {
+                pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
+              } else if (finalRisk === 2) {
+                pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
+              } else {
+                pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
+              }
             }
-        });
-    }
-}
+          });
+        }
+      }
 
-function showRiskAnalysis() {
-    if (!selectedPolygon) return;
+      function showRiskAnalysis() {
+        if (!selectedPolygon) return;
 
-    document.getElementById('demoDescription').textContent = 'Step 6: Risk Analysis - Final risk assessment with water area exclusion and statistics calculation.';
-    document.getElementById('demoStats').innerHTML = `
+        document.getElementById('demoDescription').textContent =
+          'Step 6: Risk Analysis - Final risk assessment with water area exclusion and statistics calculation.';
+        document.getElementById('demoStats').innerHTML = `
         <strong>Final Risk Analysis:</strong><br/>
         • Green: Low risk (Level 0)<br/>
         • Yellow: Medium risk (Level 1)<br/>
@@ -1102,253 +1366,282 @@ function showRiskAnalysis() {
         • Find nearest risk points
     `;
 
-    // Final risk analysis with water exclusion
-    if (demoLayers.gridPoints) {
-        demoLayers.gridPoints.eachLayer(pointLayer => {
+        // Final risk analysis with water exclusion
+        if (demoLayers.gridPoints) {
+          demoLayers.gridPoints.eachLayer(pointLayer => {
             const point = pointLayer.getLatLng();
             if (selectedPolygon.getBounds().contains(point)) {
-                // Simulate water detection and final risk
-                const isWater = Math.random() < 0.1; // 10% chance of water
+              // Simulate water detection and final risk
+              const isWater = Math.random() < 0.1; // 10% chance of water
 
-                if (isWater) {
-                    pointLayer.setStyle({ color: '#2196F3', fillColor: '#2196F3' }); // Blue - Water
+              if (isWater) {
+                pointLayer.setStyle({ color: '#2196F3', fillColor: '#2196F3' }); // Blue - Water
+              } else {
+                const risk = Math.random();
+                if (risk < 0.3) {
+                  pointLayer.setStyle({
+                    color: '#4CAF50',
+                    fillColor: '#4CAF50',
+                  }); // Green - Low
+                } else if (risk < 0.6) {
+                  pointLayer.setStyle({
+                    color: '#FFC107',
+                    fillColor: '#FFC107',
+                  }); // Yellow - Medium
+                } else if (risk < 0.8) {
+                  pointLayer.setStyle({
+                    color: '#FF9800',
+                    fillColor: '#FF9800',
+                  }); // Orange - High
                 } else {
-                    const risk = Math.random();
-                    if (risk < 0.3) {
-                        pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
-                    } else if (risk < 0.6) {
-                        pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
-                    } else if (risk < 0.8) {
-                        pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
-                    } else {
-                        pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
-                    }
+                  pointLayer.setStyle({
+                    color: '#F44336',
+                    fillColor: '#F44336',
+                  }); // Red - Very High
                 }
+              }
             }
-        });
-    }
-}
+          });
+        }
+      }
 
-// --- LocalStorage Management ---
-function saveConfigToLocalStorage() {
-    const config = {
-        gridSize: document.getElementById('gridSize').value,
-        zoom: document.getElementById('zoom').value,
-        hazardName: document.getElementById('hazardName').value,
-        hazardConfig: hazardConfig,
-        hazardTiles: hazardTiles,
-        mergeStrategy: document.getElementById('mergeStrategy').value
-    };
-    localStorage.setItem('hazardRiskConfig', JSON.stringify(config));
-}
+      // --- LocalStorage Management ---
+      function saveConfigToLocalStorage() {
+        const config = {
+          gridSize: document.getElementById('gridSize').value,
+          zoom: document.getElementById('zoom').value,
+          hazardName: document.getElementById('hazardName').value,
+          hazardConfig: hazardConfig,
+          hazardTiles: hazardTiles,
+          mergeStrategy: document.getElementById('mergeStrategy').value,
+        };
+        localStorage.setItem('hazardRiskConfig', JSON.stringify(config));
+      }
 
-function loadConfigFromLocalStorage() {
-    const savedConfig = localStorage.getItem('hazardRiskConfig');
-    if (savedConfig) {
-        try {
+      function loadConfigFromLocalStorage() {
+        const savedConfig = localStorage.getItem('hazardRiskConfig');
+        if (savedConfig) {
+          try {
             const config = JSON.parse(savedConfig);
 
             // Load basic config
-            if (config.gridSize) document.getElementById('gridSize').value = config.gridSize;
-            if (config.zoom) document.getElementById('zoom').value = config.zoom;
-            if (config.hazardName) document.getElementById('hazardName').value = config.hazardName;
-            if (config.mergeStrategy) document.getElementById('mergeStrategy').value = config.mergeStrategy;
+            if (config.gridSize)
+              document.getElementById('gridSize').value = config.gridSize;
+            if (config.zoom)
+              document.getElementById('zoom').value = config.zoom;
+            if (config.hazardName)
+              document.getElementById('hazardName').value = config.hazardName;
+            if (config.mergeStrategy)
+              document.getElementById('mergeStrategy').value =
+                config.mergeStrategy;
 
             // Load hazard config
             if (config.hazardConfig) {
-                hazardConfig = config.hazardConfig;
+              hazardConfig = config.hazardConfig;
             }
 
             // Load hazard tiles
             if (config.hazardTiles) {
-                hazardTiles = config.hazardTiles;
+              hazardTiles = config.hazardTiles;
             }
 
             return true;
-        } catch (e) {
+          } catch (e) {
             console.error('Error loading config from localStorage:', e);
             return false;
+          }
         }
-    }
-    return false;
-}
+        return false;
+      }
 
-function applyConfigToMap() {
-    // Update map with current config
-    if (map) {
-        // Update hazard layer only - keep OpenStreetMap as base
-        updateHazardLayers();
-    }
-}
+      function applyConfigToMap() {
+        // Update map with current config
+        if (map) {
+          // Update hazard layer only - keep OpenStreetMap as base
+          updateHazardLayers();
+        }
+      }
 
-function updateHazardLayers() {
-    // Remove all existing hazard layers
-    hazardLayers.forEach(layer => {
-        if (map.hasLayer(layer)) {
+      function updateHazardLayers() {
+        // Remove all existing hazard layers
+        hazardLayers.forEach(layer => {
+          if (map.hasLayer(layer)) {
             map.removeLayer(layer);
-        }
-    });
-    hazardLayers = [];
+          }
+        });
+        hazardLayers = [];
 
-    // Add new hazard layers
-    hazardTiles.forEach((tile, index) => {
-        if (tile.show && tile.url) {
+        // Add new hazard layers
+        hazardTiles.forEach((tile, index) => {
+          if (tile.show && tile.url) {
             const layer = L.tileLayer(tile.url, {
-                opacity: 0.7,
-                attribution: `Hazard Data ${index + 1}`,
-                pane: 'overlayPane'
+              opacity: 0.7,
+              attribution: `Hazard Data ${index + 1}`,
+              pane: 'overlayPane',
             });
             hazardLayers.push(layer);
             layer.addTo(map);
-        }
-    });
-}
+          }
+        });
+      }
 
-function initMap() {
-    map = L.map('map', {
-        center: [35.00987961803894, 138.38045440614223], // Match example.ts location
-        zoom: 13,
-        minZoom: 2,
-        maxZoom: 18
-    });
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-    drawnItems = new L.FeatureGroup().addTo(map);
-    drawControl = new L.Control.Draw({
-        edit: { featureGroup: drawnItems, remove: true },
-        draw: {
+      function initMap() {
+        map = L.map('map', {
+          center: [35.00987961803894, 138.38045440614223], // Match example.ts location
+          zoom: 13,
+          minZoom: 2,
+          maxZoom: 18,
+        });
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map);
+        drawnItems = new L.FeatureGroup().addTo(map);
+        drawControl = new L.Control.Draw({
+          edit: { featureGroup: drawnItems, remove: true },
+          draw: {
             polygon: true,
             rectangle: true,
             circle: true,
             marker: false,
             polyline: false,
-            circlemarker: false
+            circlemarker: false,
+          },
+        });
+        map.addControl(drawControl);
+        map.on(L.Draw.Event.CREATED, function (e) {
+          drawnItems.addLayer(e.layer);
+          syncGeoJsonText();
+          rebindAllRiskPopups();
+        });
+        map.on(L.Draw.Event.EDITED, function (e) {
+          syncGeoJsonText();
+          rebindAllRiskPopups();
+        });
+        map.on(L.Draw.Event.DELETED, function (e) {
+          syncGeoJsonText();
+          rebindAllRiskPopups();
+        });
+        updateHazardLayers();
+      }
+
+      // --- GeoJSON sync logic ---
+      function syncGeoJsonText() {
+        ignoreGeoJsonChange = true;
+        const geojson = drawnItems.toGeoJSON();
+        document.getElementById('geojsonText').value = JSON.stringify(
+          geojson,
+          null,
+          2
+        );
+        ignoreGeoJsonChange = false;
+      }
+
+      // Hàm chuyển đổi Circle thành Polygon
+      function circleToPolygon(center, radius, numPoints = 32) {
+        const coordinates = [];
+        const [lng, lat] = center;
+
+        for (let i = 0; i < numPoints; i++) {
+          const angle = (i / numPoints) * 2 * Math.PI;
+
+          // Tính toán offset theo hướng bắc-nam và đông-tây
+          const latOffset = (radius / 111320) * Math.cos(angle);
+          const lngOffset =
+            (radius / (111320 * Math.cos((lat * Math.PI) / 180))) *
+            Math.sin(angle);
+
+          coordinates.push([lng + lngOffset, lat + latOffset]);
         }
-    });
-    map.addControl(drawControl);
-    map.on(L.Draw.Event.CREATED, function (e) {
-        drawnItems.addLayer(e.layer);
-        syncGeoJsonText();
-        rebindAllRiskPopups();
-    });
-    map.on(L.Draw.Event.EDITED, function (e) {
-        syncGeoJsonText();
-        rebindAllRiskPopups();
-    });
-    map.on(L.Draw.Event.DELETED, function (e) {
-        syncGeoJsonText();
-        rebindAllRiskPopups();
-    });
-    updateHazardLayers();
-}
 
-// --- GeoJSON sync logic ---
-function syncGeoJsonText() {
-    ignoreGeoJsonChange = true;
-    const geojson = drawnItems.toGeoJSON();
-    document.getElementById('geojsonText').value = JSON.stringify(geojson, null, 2);
-    ignoreGeoJsonChange = false;
-}
+        // Đóng polygon
+        coordinates.push(coordinates[0]);
+        return coordinates;
+      }
 
-// Hàm chuyển đổi Circle thành Polygon
-function circleToPolygon(center, radius, numPoints = 32) {
-    const coordinates = [];
-    const [lng, lat] = center;
+      // Lắng nghe click vào từng layer để phân tích risk
+      function bindRiskPopupToLayer(layer) {
+        console.log('Binding click event to layer:', layer);
+        // Remove existing click handlers to prevent duplicate calls
+        layer.off('click');
+        layer.on('click', async function (e) {
+          console.log('Layer clicked!', layer);
 
-    for (let i = 0; i < numPoints; i++) {
-        const angle = (i / numPoints) * 2 * Math.PI;
+          // Save selected polygon for demo
+          selectedPolygon = layer;
 
-        // Tính toán offset theo hướng bắc-nam và đông-tây
-        const latOffset = (radius / 111320) * Math.cos(angle);
-        const lngOffset = (radius / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
-
-        coordinates.push([lng + lngOffset, lat + latOffset]);
-    }
-
-    // Đóng polygon
-    coordinates.push(coordinates[0]);
-    return coordinates;
-}
-
-// Lắng nghe click vào từng layer để phân tích risk
-function bindRiskPopupToLayer(layer) {
-    console.log('Binding click event to layer:', layer);
-    // Remove existing click handlers to prevent duplicate calls
-    layer.off('click');
-    layer.on('click', async function(e) {
-        console.log('Layer clicked!', layer);
-
-        // Save selected polygon for demo
-        selectedPolygon = layer;
-
-        // Prevent multiple API calls
-        if (isAnalyzing) {
+          // Prevent multiple API calls
+          if (isAnalyzing) {
             console.log('Analysis already in progress, skipping...');
             return;
-        }
+          }
 
-        isAnalyzing = true;
+          isAnalyzing = true;
 
-        // Lấy geojson của layer
-        const geojson = layer.toGeoJSON();
+          // Lấy geojson của layer
+          const geojson = layer.toGeoJSON();
 
-        // Xử lý trường hợp Circle (Point) thành Polygon
-        let polygonGeometry = geojson.geometry;
-        if (geojson.geometry.type === 'Point' && layer instanceof L.Circle) {
+          // Xử lý trường hợp Circle (Point) thành Polygon
+          let polygonGeometry = geojson.geometry;
+          if (geojson.geometry.type === 'Point' && layer instanceof L.Circle) {
             const center = geojson.geometry.coordinates;
             const radius = layer.getRadius(); // Lấy bán kính của circle
             const polygonCoords = circleToPolygon(center, radius);
             polygonGeometry = {
-                type: 'Polygon',
-                coordinates: [polygonCoords]
+              type: 'Polygon',
+              coordinates: [polygonCoords],
             };
-        }
+          }
 
-        // Lấy config hiện tại
-        const baseUrl = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
-        const gridSize = parseInt(document.getElementById('gridSize').value);
-        const zoom = parseInt(document.getElementById('zoom').value);
-        const mergeStrategy = document.getElementById('mergeStrategy').value;
-        // Hiển thị popup loading
-        layer.bindPopup('Calculating risk...').openPopup(e.latlng || undefined);
-        try {
+          // Lấy config hiện tại
+          const baseUrl =
+            'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
+          const gridSize = parseInt(document.getElementById('gridSize').value);
+          const zoom = parseInt(document.getElementById('zoom').value);
+          const mergeStrategy = document.getElementById('mergeStrategy').value;
+          // Hiển thị popup loading
+          layer
+            .bindPopup('Calculating risk...')
+            .openPopup(e.latlng || undefined);
+          try {
             // Gọi API phân tích risk
             console.log('original geojson', geojson.geometry);
             console.log('processed geometry', polygonGeometry);
 
             // Chuẩn bị payload cho API
             const payload = {
-                polygon: polygonGeometry,
-                hazardTiles: getHazardTiles(),
-                baseTileUrl: baseUrl,
-                gridSize,
-                zoom,
-                hazardConfig: getHazardConfig(),
-                currentLocation: {
-                    lat: e.latlng.lat,
-                    lon: e.latlng.lng
-                },
-                mergeStrategy: mergeStrategy
+              polygon: polygonGeometry,
+              hazardTiles: getHazardTiles(),
+              baseTileUrl: baseUrl,
+              gridSize,
+              zoom,
+              hazardConfig: getHazardConfig(),
+              currentLocation: {
+                lat: e.latlng.lat,
+                lon: e.latlng.lng,
+              },
+              mergeStrategy: mergeStrategy,
             };
 
             // Gọi API
-            const response = await fetch('https://dev-public-api.uni-voice.biz/api/v1/hazardmap/risk-analysis', {
+            const response = await fetch(
+              'https://dev-public-api.uni-voice.biz/api/v1/hazardmap/risk-analysis',
+              {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                  'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(payload)
-            });
+                body: JSON.stringify(payload),
+              }
+            );
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const result = await response.json();
 
             if (result.status !== 'OK') {
-                throw new Error('API returned error status');
+              throw new Error('API returned error status');
             }
 
             // Hiển thị kết quả risk
@@ -1356,263 +1649,329 @@ function bindRiskPopupToLayer(layer) {
 
             // Thêm thông tin về hình dạng
             if (layer instanceof L.Circle) {
-                const radius = layer.getRadius();
-                const center = layer.getLatLng();
-                html += `<b>Circle Info:</b><br/>`;
-                html += `Radius: ${radius.toFixed(1)}m<br/>`;
-                html += `Center: ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}<br/>`;
-                html += `Area: ${(Math.PI * radius * radius).toFixed(0)}m²<br/>`;
-                html += '<br/>';
+              const radius = layer.getRadius();
+              const center = layer.getLatLng();
+              html += `<b>Circle Info:</b><br/>`;
+              html += `Radius: ${radius.toFixed(1)}m<br/>`;
+              html += `Center: ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}<br/>`;
+              html += `Area: ${(Math.PI * radius * radius).toFixed(0)}m²<br/>`;
+              html += '<br/>';
             } else if (layer instanceof L.Rectangle) {
-                const bounds = layer.getBounds();
-                const area = (bounds.getNorthEast().lat - bounds.getSouthWest().lat) *
-                           (bounds.getNorthEast().lng - bounds.getSouthWest().lng) * 111320 * 111320;
-                html += `<b>Rectangle Info:</b><br/>`;
-                html += `Bounds: ${bounds.getSouthWest().lat.toFixed(6)}, ${bounds.getSouthWest().lng.toFixed(6)} to ${bounds.getNorthEast().lat.toFixed(6)}, ${bounds.getNorthEast().lng.toFixed(6)}<br/>`;
-                html += `Area: ${area.toFixed(0)}m²<br/>`;
-                html += '<br/>';
+              const bounds = layer.getBounds();
+              const area =
+                (bounds.getNorthEast().lat - bounds.getSouthWest().lat) *
+                (bounds.getNorthEast().lng - bounds.getSouthWest().lng) *
+                111320 *
+                111320;
+              html += `<b>Rectangle Info:</b><br/>`;
+              html += `Bounds: ${bounds.getSouthWest().lat.toFixed(6)}, ${bounds.getSouthWest().lng.toFixed(6)} to ${bounds.getNorthEast().lat.toFixed(6)}, ${bounds.getNorthEast().lng.toFixed(6)}<br/>`;
+              html += `Area: ${area.toFixed(0)}m²<br/>`;
+              html += '<br/>';
             } else if (layer instanceof L.Polygon) {
-                const latlngs = layer.getLatLngs()[0]; // Lấy coordinates của polygon
-                const area = L.GeometryUtil.geodesicArea(latlngs);
-                html += `<b>Polygon Info:</b><br/>`;
-                html += `Vertices: ${latlngs.length}<br/>`;
-                html += `Area: ${area.toFixed(0)}m²<br/>`;
-                html += '<br/>';
+              const latlngs = layer.getLatLngs()[0]; // Lấy coordinates của polygon
+              const area = L.GeometryUtil.geodesicArea(latlngs);
+              html += `<b>Polygon Info:</b><br/>`;
+              html += `Vertices: ${latlngs.length}<br/>`;
+              html += `Area: ${area.toFixed(0)}m²<br/>`;
+              html += '<br/>';
             }
 
             html += `<b>Total Points:</b> ${result.data.stats.total}<br/>`;
             html += `<b>Water Points:</b> ${result.data.waterCount}<br/>`;
             html += '<b>Risk Distribution:</b><br/>';
             Object.entries(result.data.stats).forEach(([level, count]) => {
-                if (level !== 'total' && count > 0) {
-                    const ratio = ((count / result.data.stats.total) * 100).toFixed(1);
-                    html += `Level ${level}: ${count} (${ratio}%)<br/>`;
-                }
+              if (level !== 'total' && count > 0) {
+                const ratio = ((count / result.data.stats.total) * 100).toFixed(
+                  1
+                );
+                html += `Level ${level}: ${count} (${ratio}%)<br/>`;
+              }
             });
 
             // Thêm thông tin về điểm gần nhất nếu có
             if (result.data.nearestPoints) {
-                html += '<br/><b>Nearest Points:</b><br/>';
-                Object.entries(result.data.nearestPoints).forEach(([level, point]) => {
-                    html += `Level ${level}: ${point.distance.toFixed(1)}m away<br/>`;
-                });
+              html += '<br/><b>Nearest Points:</b><br/>';
+              Object.entries(result.data.nearestPoints).forEach(
+                ([level, point]) => {
+                  html += `Level ${level}: ${point.distance.toFixed(1)}m away<br/>`;
+                }
+              );
             }
 
             // Thêm thông tin về rủi ro tại vị trí hiện tại
             if (result.data.currentLocationRisk) {
-                const currentRisk = result.data.currentLocationRisk;
-                const riskLevel = currentRisk.riskLevel;
-                const isWater = currentRisk.isWater;
+              const currentRisk = result.data.currentLocationRisk;
+              const riskLevel = currentRisk.riskLevel;
+              const isWater = currentRisk.isWater;
 
-                html += '<br/><b>Current Location Risk:</b><br/>';
-                html += `Risk Level: <b>${riskLevel}</b><br/>`;
+              html += '<br/><b>Current Location Risk:</b><br/>';
+              html += `Risk Level: <b>${riskLevel}</b><br/>`;
 
-                // Hiển thị thông tin chi tiết về level nếu có trong hazardConfig
-                if (result.data.hazardConfig && result.data.hazardConfig.levels && result.data.hazardConfig.levels[riskLevel]) {
-                    const levelInfo = result.data.hazardConfig.levels[riskLevel];
-                    html += `Level Name: <b>${levelInfo.name}</b><br/>`;
-                    html += `Description: <b>${levelInfo.description}</b><br/>`;
-                    html += `Color: <span style="background-color: ${levelInfo.color}; padding: 2px 6px; border-radius: 3px; color: ${levelInfo.color === '#FFFFFF' ? '#000' : '#fff'}">${levelInfo.color}</span><br/>`;
-                }
+              // Hiển thị thông tin chi tiết về level nếu có trong hazardConfig
+              if (
+                result.data.hazardConfig &&
+                result.data.hazardConfig.levels &&
+                result.data.hazardConfig.levels[riskLevel]
+              ) {
+                const levelInfo = result.data.hazardConfig.levels[riskLevel];
+                html += `Level Name: <b>${levelInfo.name}</b><br/>`;
+                html += `Description: <b>${levelInfo.description}</b><br/>`;
+                html += `Color: <span style="background-color: ${levelInfo.color}; padding: 2px 6px; border-radius: 3px; color: ${levelInfo.color === '#FFFFFF' ? '#000' : '#fff'}">${levelInfo.color}</span><br/>`;
+              }
             }
 
             // Thêm thông tin độ cao DEM nếu có
             if ('demElevation' in result.data) {
-                const elev = result.data.demElevation;
-                html += `<br/><b>DEM Elevation:</b><br/>`;
-                if (elev && elev.elevation !== undefined && elev.elevation !== null) {
-                    html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-                    html += `Source: ${elev.source || ''}<br/>`;
-                    if (elev.position) {
-                        html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
-                        if (elev.position.zoom !== undefined) {
-                            html += `Zoom: ${elev.position.zoom}<br/>`;
-                        }
-                    }
-                    if (elev.time !== undefined) {
-                        html += `Time: ${elev.time}ms<br/>`;
-                    }
-                } else {
-                    html += `<span style="color:#f44336">Could not load</span><br/>`;
+              const elev = result.data.demElevation;
+              html += `<br/><b>DEM Elevation:</b><br/>`;
+              if (
+                elev &&
+                elev.elevation !== undefined &&
+                elev.elevation !== null
+              ) {
+                html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                html += `Source: ${elev.source || ''}<br/>`;
+                if (elev.position) {
+                  html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+                  if (elev.position.zoom !== undefined) {
+                    html += `Zoom: ${elev.position.zoom}<br/>`;
+                  }
                 }
+                if (elev.time !== undefined) {
+                  html += `Time: ${elev.time}ms<br/>`;
+                }
+              } else {
+                html += `<span style="color:#f44336">Could not load</span><br/>`;
+              }
             }
 
             // Thêm thông tin độ cao GSI nếu có
             if ('gsiElevation' in result.data) {
-                const elev = result.data.gsiElevation;
-                html += `<br/><b>GSI Elevation:</b><br/>`;
-                if (elev && elev.elevation !== undefined && elev.elevation !== null) {
-                    html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-                    if (elev.latitude !== undefined && elev.longitude !== undefined) {
-                        html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
-                    }
-                    if (elev.time !== undefined) {
-                        html += `Time: ${elev.time}ms<br/>`;
-                    }
-                } else {
-                    html += `<span style="color:#f44336">Could not load</span><br/>`;
+              const elev = result.data.gsiElevation;
+              html += `<br/><b>GSI Elevation:</b><br/>`;
+              if (
+                elev &&
+                elev.elevation !== undefined &&
+                elev.elevation !== null
+              ) {
+                html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                if (
+                  elev.latitude !== undefined &&
+                  elev.longitude !== undefined
+                ) {
+                  html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
                 }
+                if (elev.time !== undefined) {
+                  html += `Time: ${elev.time}ms<br/>`;
+                }
+              } else {
+                html += `<span style="color:#f44336">Could not load</span><br/>`;
+              }
             }
 
             layer.setPopupContent(html);
-        } catch (err) {
+          } catch (err) {
             console.error(err);
-            layer.setPopupContent('Risk analysis failed! Error: ' + err.message);
-        } finally {
+            layer.setPopupContent(
+              'Risk analysis failed! Error: ' + err.message
+            );
+          } finally {
             isAnalyzing = false;
-        }
-    });
-}
-
-// Hàm xử lý import GeoJSON
-function importGeoJSON(geojsonText) {
-    console.log('Importing GeoJSON...');
-    if (ignoreGeoJsonChange || isImporting) return;
-    isImporting = true;
-    try {
-        const geojson = JSON.parse(geojsonText);
-        console.log('Parsed GeoJSON:', geojson);
-        drawnItems.clearLayers();
-
-                let firstLayer = null;
-
-        L.geoJSON(geojson, {
-            onEachFeature: function (feature, layer) {
-                drawnItems.addLayer(layer);
-                // Lưu layer đầu tiên để move map
-                if (!firstLayer) {
-                    firstLayer = layer;
-                }
-            }
+          }
         });
+      }
 
+      // Hàm xử lý import GeoJSON
+      function importGeoJSON(geojsonText) {
+        console.log('Importing GeoJSON...');
+        if (ignoreGeoJsonChange || isImporting) return;
+        isImporting = true;
+        try {
+          const geojson = JSON.parse(geojsonText);
+          console.log('Parsed GeoJSON:', geojson);
+          drawnItems.clearLayers();
 
+          let firstLayer = null;
 
-        // Bind events cho các layer mới được import
-        console.log('About to bind events...');
-        // Bind events ngay lập tức
-        rebindAllRiskPopups();
+          L.geoJSON(geojson, {
+            onEachFeature: function (feature, layer) {
+              drawnItems.addLayer(layer);
+              // Lưu layer đầu tiên để move map
+              if (!firstLayer) {
+                firstLayer = layer;
+              }
+            },
+          });
 
-        // Tự động move map đến polygon đầu tiên nếu có với hiệu ứng bay
-        if (firstLayer && map) {
+          // Bind events cho các layer mới được import
+          console.log('About to bind events...');
+          // Bind events ngay lập tức
+          rebindAllRiskPopups();
+
+          // Tự động move map đến polygon đầu tiên nếu có với hiệu ứng bay
+          if (firstLayer && map) {
             // Nếu là GeoJSON FeatureCollection, lấy feature đầu tiên
-            if (geojson.type === 'FeatureCollection' && geojson.features.length > 0) {
-                const firstFeature = geojson.features[0];
-                if (firstFeature.geometry && firstFeature.geometry.type === 'Polygon') {
-                    // Tính bounds của polygon đầu tiên
-                    const coordinates = firstFeature.geometry.coordinates[0];
-                    const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
-                    map.flyToBounds(bounds, {
-                        padding: [20, 20],
-                        duration: 1.5,
-                        easeLinearity: 0.25
-                    }).on('end', function() {
-                        console.log('Map fly completed, rebinding events...');
-                        rebindAllRiskPopups();
-                    });
-                }
-            } else if (geojson.type === 'Feature' && geojson.geometry && geojson.geometry.type === 'Polygon') {
-                // Nếu là single Feature với Polygon
-                const coordinates = geojson.geometry.coordinates[0];
-                const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
-                map.flyToBounds(bounds, {
+            if (
+              geojson.type === 'FeatureCollection' &&
+              geojson.features.length > 0
+            ) {
+              const firstFeature = geojson.features[0];
+              if (
+                firstFeature.geometry &&
+                firstFeature.geometry.type === 'Polygon'
+              ) {
+                // Tính bounds của polygon đầu tiên
+                const coordinates = firstFeature.geometry.coordinates[0];
+                const bounds = L.latLngBounds(
+                  coordinates.map(coord => [coord[1], coord[0]])
+                );
+                map
+                  .flyToBounds(bounds, {
                     padding: [20, 20],
                     duration: 1.5,
-                    easeLinearity: 0.25
-                }).on('end', function() {
+                    easeLinearity: 0.25,
+                  })
+                  .on('end', function () {
                     console.log('Map fly completed, rebinding events...');
                     rebindAllRiskPopups();
+                  });
+              }
+            } else if (
+              geojson.type === 'Feature' &&
+              geojson.geometry &&
+              geojson.geometry.type === 'Polygon'
+            ) {
+              // Nếu là single Feature với Polygon
+              const coordinates = geojson.geometry.coordinates[0];
+              const bounds = L.latLngBounds(
+                coordinates.map(coord => [coord[1], coord[0]])
+              );
+              map
+                .flyToBounds(bounds, {
+                  padding: [20, 20],
+                  duration: 1.5,
+                  easeLinearity: 0.25,
+                })
+                .on('end', function () {
+                  console.log('Map fly completed, rebinding events...');
+                  rebindAllRiskPopups();
                 });
             } else if (geojson.type === 'Polygon') {
-                // Nếu là Polygon trực tiếp
-                const coordinates = geojson.coordinates[0];
-                const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
-                map.flyToBounds(bounds, {
-                    padding: [20, 20],
-                    duration: 1.5,
-                    easeLinearity: 0.25
-                }).on('end', function() {
-                    console.log('Map fly completed, rebinding events...');
-                    rebindAllRiskPopups();
+              // Nếu là Polygon trực tiếp
+              const coordinates = geojson.coordinates[0];
+              const bounds = L.latLngBounds(
+                coordinates.map(coord => [coord[1], coord[0]])
+              );
+              map
+                .flyToBounds(bounds, {
+                  padding: [20, 20],
+                  duration: 1.5,
+                  easeLinearity: 0.25,
+                })
+                .on('end', function () {
+                  console.log('Map fly completed, rebinding events...');
+                  rebindAllRiskPopups();
                 });
             } else {
-                // Fallback: move đến layer đầu tiên
-                map.flyToBounds(firstLayer.getBounds(), {
-                    padding: [20, 20],
-                    duration: 1.5,
-                    easeLinearity: 0.25
-                }).on('end', function() {
-                    console.log('Map fly completed, rebinding events...');
-                    rebindAllRiskPopups();
+              // Fallback: move đến layer đầu tiên
+              map
+                .flyToBounds(firstLayer.getBounds(), {
+                  padding: [20, 20],
+                  duration: 1.5,
+                  easeLinearity: 0.25,
+                })
+                .on('end', function () {
+                  console.log('Map fly completed, rebinding events...');
+                  rebindAllRiskPopups();
                 });
             }
-        } else {
+          } else {
             // Nếu không có fly animation, bind events ngay
             setTimeout(() => {
-                console.log('No fly animation, rebinding events...');
-                rebindAllRiskPopups();
+              console.log('No fly animation, rebinding events...');
+              rebindAllRiskPopups();
             }, 100);
+          }
+        } catch (e) {
+          console.error('Error parsing GeoJSON:', e);
+          // ignore parse error
+        } finally {
+          isImporting = false;
         }
-    } catch (e) {
-        console.error('Error parsing GeoJSON:', e);
-        // ignore parse error
-    } finally {
-        isImporting = false;
-    }
-}
+      }
 
-// Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
-function rebindAllRiskPopups() {
-    console.log('Rebinding all risk popups...');
-    let boundCount = 0;
-    drawnItems.eachLayer(function(layer) {
-        // Xử lý tất cả các loại layer có thể phân tích risk
-        if (layer instanceof L.Polygon || layer instanceof L.Rectangle || layer instanceof L.Circle) {
+      // Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
+      function rebindAllRiskPopups() {
+        console.log('Rebinding all risk popups...');
+        let boundCount = 0;
+        drawnItems.eachLayer(function (layer) {
+          // Xử lý tất cả các loại layer có thể phân tích risk
+          if (
+            layer instanceof L.Polygon ||
+            layer instanceof L.Rectangle ||
+            layer instanceof L.Circle
+          ) {
             bindRiskPopupToLayer(layer);
             boundCount++;
+          }
+        });
+        console.log(`Bound events to ${boundCount} layers`);
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        // Load config from localStorage first
+        const configLoaded = loadConfigFromLocalStorage();
+
+        initMap();
+        syncGeoJsonText();
+
+        // Khởi tạo giao diện cấu hình hazard
+        initializeFormWithDefaults();
+        renderRiskLevels();
+        renderWaterColors();
+        renderHazardTiles();
+
+        // Apply loaded config to map if config was loaded
+        if (configLoaded) {
+          applyConfigToMap();
         }
-    });
-    console.log(`Bound events to ${boundCount} layers`);
-}
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Load config from localStorage first
-    const configLoaded = loadConfigFromLocalStorage();
+        // Khi sửa textarea, cập nhật lại map
+        let importTimeout;
+        document
+          .getElementById('geojsonText')
+          .addEventListener('input', function () {
+            // Debounce để tránh import nhiều lần
+            clearTimeout(importTimeout);
+            importTimeout = setTimeout(() => {
+              importGeoJSON(this.value);
+            }, 300);
+          });
 
-    initMap();
-    syncGeoJsonText();
+        // Add event listeners for config changes
+        document
+          .getElementById('mergeStrategy')
+          .addEventListener('change', saveConfigToLocalStorage);
 
-    // Khởi tạo giao diện cấu hình hazard
-    initializeFormWithDefaults();
-    renderRiskLevels();
-    renderWaterColors();
-    renderHazardTiles();
-
-    // Apply loaded config to map if config was loaded
-    if (configLoaded) {
-        applyConfigToMap();
-    }
-
-    // Khi sửa textarea, cập nhật lại map
-    let importTimeout;
-    document.getElementById('geojsonText').addEventListener('input', function() {
-        // Debounce để tránh import nhiều lần
-        clearTimeout(importTimeout);
-        importTimeout = setTimeout(() => {
-            importGeoJSON(this.value);
-        }, 300);
-    });
-
-    // Add event listeners for config changes
-    document.getElementById('mergeStrategy').addEventListener('change', saveConfigToLocalStorage);
-
-    document.getElementById('gridSize').addEventListener('change', saveConfigToLocalStorage);
-    document.getElementById('gridSize').addEventListener('blur', saveConfigToLocalStorage);
-    document.getElementById('zoom').addEventListener('change', saveConfigToLocalStorage);
-    document.getElementById('zoom').addEventListener('blur', saveConfigToLocalStorage);
-    document.getElementById('hazardName').addEventListener('change', saveConfigToLocalStorage);
-    document.getElementById('hazardName').addEventListener('blur', saveConfigToLocalStorage);
-});
-</script>
-</body>
+        document
+          .getElementById('gridSize')
+          .addEventListener('change', saveConfigToLocalStorage);
+        document
+          .getElementById('gridSize')
+          .addEventListener('blur', saveConfigToLocalStorage);
+        document
+          .getElementById('zoom')
+          .addEventListener('change', saveConfigToLocalStorage);
+        document
+          .getElementById('zoom')
+          .addEventListener('blur', saveConfigToLocalStorage);
+        document
+          .getElementById('hazardName')
+          .addEventListener('change', saveConfigToLocalStorage);
+        document
+          .getElementById('hazardName')
+          .addEventListener('blur', saveConfigToLocalStorage);
+      });
+    </script>
+  </body>
 </html>

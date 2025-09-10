@@ -1,0 +1,1292 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Hazard Risk GeoJSON Editor</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Calibri', 'Trebuchet MS', 'Ubuntu', Arial, sans-serif;
+            background: #f6f8fa;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        .map-panel {
+            flex: 1 1 0;
+            min-width: 0;
+            position: relative;
+            background: #eaeaea;
+        }
+        #map {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 1;
+        }
+        .side-panel {
+            width: 420px;
+            background: #fff;
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.04);
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px 0;
+            text-align: center;
+            background: #f6f8fa;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .tab-btn.active {
+            background: #fff;
+            border-bottom: 2px solid #1976d2;
+            color: #1976d2;
+            font-weight: bold;
+        }
+        .tab-content {
+            flex: 1;
+            padding: 18px 18px 12px 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .geojson-textarea {
+            width: 100%;
+            flex: 1 1 0;
+            min-height: 0;
+            height: 100%;
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px solid #d0d0d0;
+            padding: 10px;
+            resize: none;
+            background: #f9f9f9;
+        }
+        .config-form label {
+            font-weight: bold;
+            margin-top: 12px;
+            display: block;
+            font-size: 13px;
+        }
+        .config-form input {
+            width: 100%;
+            padding: 7px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-size: 13px;
+            background: #f9f9f9;
+        }
+        .config-form {
+            margin-top: 8px;
+        }
+        .config-form .form-group {
+            margin-bottom: 14px;
+        }
+        .hazard-config {
+            border-top: 1px solid #e0e0e0;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+        .hazard-config h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .level-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        .level-item:hover {
+            background: #f0f0f0;
+        }
+        .level-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .level-inputs {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .level-inputs input {
+            margin: 0;
+            padding: 4px 6px;
+            font-size: 12px;
+        }
+        .level-inputs input[type="text"] {
+            flex: 1;
+        }
+        .level-inputs input[type="color"] {
+            width: 30px;
+            height: 25px;
+            padding: 0;
+            border: none;
+            border-radius: 3px;
+        }
+        .add-level-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .add-level-btn:hover {
+            background: #45a049;
+        }
+        .remove-level-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .remove-level-btn:hover {
+            background: #da190b;
+        }
+        .water-colors {
+            margin-top: 15px;
+        }
+        .water-colors h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        .color-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .color-item input[type="color"] {
+            width: 25px;
+            height: 20px;
+            border: none;
+            border-radius: 2px;
+        }
+        .add-color-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .add-color-btn:hover {
+            background: #1976D2;
+        }
+        .remove-color-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .remove-color-btn:hover {
+            background: #da190b;
+        }
+
+        /* Demo Tab Styles */
+        .demo-controls {
+            padding: 15px;
+        }
+        .demo-controls h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .demo-controls p {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .demo-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .step-item.active {
+            background: #e3f2fd;
+            border-color: #2196F3;
+            color: #1976D2;
+        }
+        .step-item.completed {
+            background: #e8f5e8;
+            border-color: #4CAF50;
+            color: #2e7d32;
+        }
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ccc;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .step-item.active .step-number {
+            background: #2196F3;
+        }
+        .step-item.completed .step-number {
+            background: #4CAF50;
+        }
+        .step-text {
+            font-weight: 500;
+        }
+        .demo-controls-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .demo-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .demo-btn:hover {
+            background: #1976D2;
+        }
+        .demo-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .demo-info {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #2196F3;
+        }
+        .demo-info div {
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .demo-info div:last-child {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 900px) {
+            .side-panel { width: 100vw; position: absolute; z-index: 10; right: 0; top: 0; height: 60vh; }
+            .container { flex-direction: column; }
+            .map-panel { height: 40vh; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="map-panel">
+        <div id="map"></div>
+    </div>
+    <div class="side-panel">
+        <div class="tabs">
+            <button class="tab-btn active" id="tabGeoJsonBtn" onclick="showTab('geojson')">GeoJSON</button>
+            <button class="tab-btn" id="tabConfigBtn" onclick="showTab('config')">Config</button>
+            <button class="tab-btn" id="tabDemoBtn" onclick="showTab('demo')">Algorithm Demo</button>
+        </div>
+        <div class="tab-content" id="tabGeoJson">
+            <textarea id="geojsonText" class="geojson-textarea"></textarea>
+        </div>
+        <div class="tab-content" id="tabConfig" style="display:none;">
+            <form class="config-form" autocomplete="off" onsubmit="return false;">
+                <div class="form-group">
+                  <label for="baseUrl">Water Map Tile URL</label>
+                  <input readonly type="text" id="baseUrl" value="https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <label for="hazardUrl" style="margin: 0; flex: 1;">Hazard Tile URL</label>
+                    <label style="margin: 0; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        <input type="checkbox" id="showHazardLayer" checked> <span>Show Layer</span>
+                    </label>
+                </div>
+                <input type="text" id="hazardUrl" value="https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png">
+
+                <div class="form-group">
+                    <label for="gridSize">Grid Size (meters)</label>
+                    <input type="number" id="gridSize" value="100" min="10" max="1000">
+                </div>
+                <div class="form-group">
+                    <label for="zoom">Zoom level</label>
+                    <input type="number" id="zoom" value="14" min="2" max="20">
+                </div>
+            </form>
+
+            <div class="hazard-config">
+                <h3>Hazard Configuration</h3>
+                <div class="form-group">
+                    <label for="hazardName">Hazard Name</label>
+                    <input type="text" id="hazardName" value="Tsunami Depth (GSI Japan)">
+                </div>
+
+                <div class="form-group">
+                    <label>Risk Levels</label>
+                    <div id="riskLevels">
+                        <!-- Risk levels will be populated by JavaScript -->
+                    </div>
+                    <button type="button" class="add-level-btn" onclick="addRiskLevel()">+ Add Level</button>
+                </div>
+
+                <div class="water-colors">
+                    <h4>Water Colors</h4>
+                    <div id="waterColors" class="color-list">
+                        <!-- Water colors will be populated by JavaScript -->
+                    </div>
+                    <button type="button" class="add-color-btn" onclick="addWaterColor()">+ Add Color</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tabDemo" style="display:none;">
+            <div class="demo-controls">
+                <h3>Algorithm Demo</h3>
+                <p>Click on a polygon to start the algorithm visualization</p>
+
+                <div class="demo-steps">
+                    <div class="step-item" id="step1">
+                        <span class="step-number">1</span>
+                        <span class="step-text">Bounding Box</span>
+                    </div>
+                    <div class="step-item" id="step2">
+                        <span class="step-number">2</span>
+                        <span class="step-text">Grid Points</span>
+                    </div>
+                    <div class="step-item" id="step3">
+                        <span class="step-number">3</span>
+                        <span class="step-text">Filter Inside</span>
+                    </div>
+                    <div class="step-item" id="step4">
+                        <span class="step-number">4</span>
+                        <span class="step-text">Risk Analysis</span>
+                    </div>
+                </div>
+
+                <div class="demo-controls-buttons">
+                    <button type="button" class="demo-btn" onclick="startAlgorithmDemo()">Start Demo</button>
+                    <button type="button" class="demo-btn" onclick="resetAlgorithmDemo()">Reset</button>
+                    <button type="button" class="demo-btn" onclick="nextAlgorithmStep()">Next Step</button>
+                </div>
+
+                <div class="demo-info">
+                    <div id="demoDescription">Click "Start Demo" to begin the algorithm visualization</div>
+                    <div id="demoStats"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet-geometryutil@0.10.0/src/leaflet.geometryutil.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+<script>
+// --- Tab logic ---
+function showTab(tab) {
+    document.getElementById('tabGeoJson').style.display = tab === 'geojson' ? '' : 'none';
+    document.getElementById('tabConfig').style.display = tab === 'config' ? '' : 'none';
+    document.getElementById('tabDemo').style.display = tab === 'demo' ? '' : 'none';
+    document.getElementById('tabGeoJsonBtn').classList.toggle('active', tab === 'geojson');
+    document.getElementById('tabConfigBtn').classList.toggle('active', tab === 'config');
+    document.getElementById('tabDemoBtn').classList.toggle('active', tab === 'demo');
+}
+
+// --- Map & Draw logic ---
+let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
+let hazardLayer = null;
+let isAnalyzing = false; // Prevent multiple API calls
+let isImporting = false; // Prevent multiple imports
+
+// --- Algorithm Demo Variables ---
+let demoLayers = {
+    boundingBox: null,
+    gridPoints: null,
+    filteredPoints: null,
+    riskPoints: null
+};
+let currentDemoStep = 0;
+let selectedPolygon = null;
+
+// --- Hazard Configuration ---
+let hazardConfig = {
+    name: "Flood Depth (GSI Japan)",
+    levels: {
+        "0": { name: "level0", color: "#FFFFFF", description: "0m" },
+        "1": { name: "level1", color: "#FFFFB3", description: "<0.3m" },
+        "2": { name: "level2", color: "#F7F5A9", description: "<0.5m" },
+        "3": { name: "level3", color: "#F8E1A6", description: "0.5~1m" },
+        "4": { name: "level4", color: "#FFD8C0", description: "0.5~3m" },
+        "5": { name: "level5", color: "#FFB7B7", description: "3~5m" },
+        "6": { name: "level6", color: "#FF9191", description: "5~10m" },
+        "7": { name: "level7", color: "#F285C9", description: "10~20m" },
+        "8": { name: "level8", color: "#DC7ADC", description: ">20m" }
+    },
+    waterColors: ["#bed2ff"]
+};
+
+function renderRiskLevels() {
+    const container = document.getElementById('riskLevels');
+    container.innerHTML = '';
+
+    Object.entries(hazardConfig.levels).forEach(([level, config]) => {
+        const levelItem = document.createElement('div');
+        levelItem.className = 'level-item';
+        levelItem.innerHTML = `
+            <div class="level-color" style="background-color: ${config.color}"></div>
+            <div class="level-inputs">
+                <input type="text" placeholder="Name" value="${config.name}" onchange="updateLevel('${level}', 'name', this.value)">
+                <input type="text" placeholder="Description" value="${config.description}" onchange="updateLevel('${level}', 'description', this.value)">
+                <input type="color" value="${config.color}" onchange="updateLevel('${level}', 'color', this.value)">
+                <button type="button" class="remove-level-btn" onclick="removeLevel('${level}')">×</button>
+            </div>
+        `;
+        container.appendChild(levelItem);
+    });
+}
+
+function renderWaterColors() {
+    const container = document.getElementById('waterColors');
+    container.innerHTML = '';
+
+    hazardConfig.waterColors.forEach((color, index) => {
+        const colorItem = document.createElement('div');
+        colorItem.className = 'color-item';
+        colorItem.innerHTML = `
+            <input type="color" value="${color}" onchange="updateWaterColor(${index}, this.value)">
+            <button type="button" class="remove-color-btn" onclick="removeWaterColor(${index})">×</button>
+        `;
+        container.appendChild(colorItem);
+    });
+}
+
+function updateLevel(level, field, value) {
+    hazardConfig.levels[level][field] = value;
+    renderRiskLevels();
+    saveConfigToLocalStorage();
+}
+
+function removeLevel(level) {
+    delete hazardConfig.levels[level];
+    renderRiskLevels();
+    saveConfigToLocalStorage();
+}
+
+function addRiskLevel() {
+    const newLevel = Object.keys(hazardConfig.levels).length;
+    hazardConfig.levels[newLevel] = {
+        name: `level${newLevel}`,
+        color: "#FFFFFF",
+        description: "New level"
+    };
+    renderRiskLevels();
+    saveConfigToLocalStorage();
+}
+
+function updateWaterColor(index, color) {
+    hazardConfig.waterColors[index] = color;
+    renderWaterColors();
+    saveConfigToLocalStorage();
+}
+
+function removeWaterColor(index) {
+    hazardConfig.waterColors.splice(index, 1);
+    renderWaterColors();
+    saveConfigToLocalStorage();
+}
+
+function addWaterColor() {
+    hazardConfig.waterColors.push("#FFFFFF");
+    renderWaterColors();
+    saveConfigToLocalStorage();
+}
+
+function getHazardConfig() {
+    return {
+        name: document.getElementById('hazardName').value,
+        levels: { ...hazardConfig.levels },
+        waterColors: [...hazardConfig.waterColors]
+    };
+}
+
+// --- Algorithm Demo Functions ---
+function startAlgorithmDemo() {
+    if (!selectedPolygon) {
+        alert('Please click on a polygon first to start the demo');
+        return;
+    }
+
+    resetAlgorithmDemo();
+    currentDemoStep = 1;
+    updateDemoStep();
+    showBoundingBox();
+}
+
+function resetAlgorithmDemo() {
+    // Remove all demo layers
+    Object.values(demoLayers).forEach(layer => {
+        if (layer) {
+            map.removeLayer(layer);
+        }
+    });
+    demoLayers = {
+        boundingBox: null,
+        gridPoints: null,
+        filteredPoints: null,
+        riskPoints: null
+    };
+
+    currentDemoStep = 0;
+    updateDemoStep();
+    document.getElementById('demoDescription').textContent = 'Click "Start Demo" to begin the algorithm visualization';
+    document.getElementById('demoStats').innerHTML = '';
+}
+
+function nextAlgorithmStep() {
+    if (currentDemoStep < 4) {
+        currentDemoStep++;
+        updateDemoStep();
+
+        switch (currentDemoStep) {
+            case 2:
+                showGridPoints();
+                break;
+            case 3:
+                showFilteredPoints();
+                break;
+            case 4:
+                showRiskAnalysis();
+                break;
+        }
+    }
+}
+
+function updateDemoStep() {
+    // Update step indicators
+    for (let i = 1; i <= 4; i++) {
+        const stepElement = document.getElementById(`step${i}`);
+        stepElement.classList.remove('active', 'completed');
+
+        if (i < currentDemoStep) {
+            stepElement.classList.add('completed');
+        } else if (i === currentDemoStep) {
+            stepElement.classList.add('active');
+        }
+    }
+}
+
+function showBoundingBox() {
+    if (!selectedPolygon) return;
+
+    const bounds = selectedPolygon.getBounds();
+    demoLayers.boundingBox = L.rectangle(bounds, {
+        color: '#ff4444',
+        weight: 3,
+        fillOpacity: 0.1,
+        fillColor: '#ff4444'
+    }).addTo(map);
+
+    document.getElementById('demoDescription').textContent = 'Step 1: Bounding Box - The algorithm first calculates the bounding box that contains the entire polygon area.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Bounding Box:</strong><br/>
+        North: ${bounds.getNorth().toFixed(6)}<br/>
+        South: ${bounds.getSouth().toFixed(6)}<br/>
+        East: ${bounds.getEast().toFixed(6)}<br/>
+        West: ${bounds.getWest().toFixed(6)}
+    `;
+}
+
+function getCirclePolygonGeoJson(circle) {
+    // Dùng turf.circle để tạo polygon GeoJSON từ L.Circle
+    const center = [circle.getLatLng().lng, circle.getLatLng().lat];
+    const radius = circle.getRadius() / 1000; // turf.circle nhận đơn vị km
+    return turf.circle(center, radius, { steps: 64, units: 'kilometers' }).geometry;
+}
+
+function showGridPoints() {
+    if (!selectedPolygon) return;
+
+    let polygonGeoJson;
+    if (selectedPolygon instanceof L.Circle) {
+        polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
+    } else {
+        polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
+    }
+    const gridSize = parseInt(document.getElementById('gridSize').value);
+
+    // Tạo lưới toàn bộ bounding box (không mask)
+    const bbox = turf.bbox(polygonGeoJson);
+    const pointGrids = turf.pointGrid(bbox, gridSize, {
+        units: 'meters'
+    });
+
+    const points = [];
+    for (const feature of pointGrids.features) {
+        const [lng, lat] = feature.geometry.coordinates;
+        points.push([lat, lng]);
+    }
+
+    demoLayers.gridPoints = L.layerGroup(
+        points.map(point => L.circleMarker(point, {
+            radius: 3,
+            color: '#666',
+            fillColor: '#999',
+            fillOpacity: 0.7
+        }))
+    ).addTo(map);
+
+    document.getElementById('demoDescription').textContent = 'Step 2: Grid Points - Creates a uniform grid of points covering the entire bounding box area.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Grid Points:</strong><br/>
+        Total Points: ${points.length}<br/>
+        Grid Size: ${gridSize}m<br/>
+        Coverage: Entire bounding box
+    `;
+}
+
+function showFilteredPoints() {
+    if (!selectedPolygon || !demoLayers.gridPoints) return;
+
+    let polygonGeoJson;
+    if (selectedPolygon instanceof L.Circle) {
+        polygonGeoJson = getCirclePolygonGeoJson(selectedPolygon);
+    } else {
+        polygonGeoJson = selectedPolygon.toGeoJSON().geometry;
+    }
+    const filteredPoints = [];
+    const toRemove = [];
+    demoLayers.gridPoints.eachLayer(pointLayer => {
+        const point = pointLayer.getLatLng();
+        const pt = turf.point([point.lng, point.lat]);
+        const inside = turf.booleanPointInPolygon(pt, polygonGeoJson);
+        if (inside) {
+            filteredPoints.push(point);
+            pointLayer.setStyle({
+                color: '#4CAF50',
+                fillColor: '#4CAF50',
+                fillOpacity: 0.8
+            });
+        } else {
+            toRemove.push(pointLayer);
+        }
+    });
+    toRemove.forEach(layer => demoLayers.gridPoints.removeLayer(layer));
+
+    document.getElementById('demoDescription').textContent = 'Step 3: Filter Inside - Removes points outside the polygon/circle, keeping only points inside the area of interest.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Filtered Points:</strong><br/>
+        Inside Area: ${filteredPoints.length}<br/>
+        Outside Area: ${toRemove.length}<br/>
+        Total Grid Points: ${filteredPoints.length + toRemove.length}
+    `;
+}
+
+function showRiskAnalysis() {
+    if (!selectedPolygon) return;
+
+    document.getElementById('demoDescription').textContent = 'Step 4: Risk Analysis - Each remaining point is analyzed for risk level based on hazard map data. Colors represent different risk levels.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Risk Analysis:</strong><br/>
+        • Green: Low risk<br/>
+        • Yellow: Medium risk<br/>
+        • Orange: High risk<br/>
+        • Red: Very high risk
+    `;
+
+    // Simulate risk analysis by coloring points
+    if (demoLayers.gridPoints) {
+        demoLayers.gridPoints.eachLayer(pointLayer => {
+            const point = pointLayer.getLatLng();
+            if (selectedPolygon.getBounds().contains(point)) {
+                // Simulate risk levels
+                const risk = Math.random();
+                if (risk < 0.3) {
+                    pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
+                } else if (risk < 0.6) {
+                    pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
+                } else if (risk < 0.8) {
+                    pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
+                } else {
+                    pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
+                }
+            }
+        });
+    }
+
+    // Thêm thông tin độ cao DEM nếu có
+    if ('demElevation' in result.data) {
+        const elev = result.data.demElevation;
+        html += `<br/><b>DEM Elevation:</b><br/>`;
+        if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+            html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+            html += `Source: ${elev.source || ''}<br/>`;
+            if (elev.position) {
+                html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+                if (elev.position.zoom !== undefined) {
+                    html += `Zoom: ${elev.position.zoom}<br/>`;
+                }
+            }
+            if (elev.time !== undefined) {
+                html += `Time: ${elev.time}ms<br/>`;
+            }
+        } else {
+            html += `<span style="color:#f44336">Could not load</span><br/>`;
+        }
+    }
+
+    // Thêm thông tin độ cao GSI nếu có
+    if ('gsiElevation' in result.data) {
+        const elev = result.data.gsiElevation;
+        html += `<br/><b>GSI Elevation:</b><br/>`;
+        if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+            html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+            if (elev.latitude !== undefined && elev.longitude !== undefined) {
+                html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
+            }
+            if (elev.time !== undefined) {
+                html += `Time: ${elev.time}ms<br/>`;
+            }
+        } else {
+            html += `<span style="color:#f44336">Could not load</span><br/>`;
+        }
+    }
+
+    layer.setPopupContent(html);
+}
+
+// --- LocalStorage Management ---
+function saveConfigToLocalStorage() {
+    const config = {
+        hazardUrl: document.getElementById('hazardUrl').value,
+        gridSize: document.getElementById('gridSize').value,
+        zoom: document.getElementById('zoom').value,
+        showHazardLayer: document.getElementById('showHazardLayer').checked,
+        hazardName: document.getElementById('hazardName').value,
+        hazardConfig: hazardConfig
+    };
+    localStorage.setItem('hazardRiskConfig', JSON.stringify(config));
+}
+
+function loadConfigFromLocalStorage() {
+    const savedConfig = localStorage.getItem('hazardRiskConfig');
+    if (savedConfig) {
+        try {
+            const config = JSON.parse(savedConfig);
+
+            // Load basic config
+            if (config.hazardUrl) document.getElementById('hazardUrl').value = config.hazardUrl;
+            if (config.gridSize) document.getElementById('gridSize').value = config.gridSize;
+            if (config.zoom) document.getElementById('zoom').value = config.zoom;
+            if (config.showHazardLayer !== undefined) document.getElementById('showHazardLayer').checked = config.showHazardLayer;
+            if (config.hazardName) document.getElementById('hazardName').value = config.hazardName;
+
+            // Load hazard config
+            if (config.hazardConfig) {
+                hazardConfig = config.hazardConfig;
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Error loading config from localStorage:', e);
+            return false;
+        }
+    }
+    return false;
+}
+
+function applyConfigToMap() {
+    // Update map with current config
+    if (map) {
+        // Update hazard layer only - keep OpenStreetMap as base
+        updateHazardLayer();
+    }
+}
+
+function updateHazardLayer() {
+    const url = document.getElementById('hazardUrl').value;
+    const show = document.getElementById('showHazardLayer').checked;
+    if (hazardLayer) {
+        map.removeLayer(hazardLayer);
+        hazardLayer = null;
+    }
+    if (show && url) {
+        hazardLayer = L.tileLayer(url, { opacity: 0.7, attribution: 'Hazard Data' });
+        hazardLayer.addTo(map);
+    }
+}
+
+function initMap() {
+    map = L.map('map', {
+        center: [35.6895, 139.6917], // Tokyo
+        zoom: 14,
+        minZoom: 2,
+        maxZoom: 18
+    });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    drawnItems = new L.FeatureGroup().addTo(map);
+    drawControl = new L.Control.Draw({
+        edit: { featureGroup: drawnItems, remove: true },
+        draw: {
+            polygon: true,
+            rectangle: true,
+            circle: true,
+            marker: false,
+            polyline: false,
+            circlemarker: false
+        }
+    });
+    map.addControl(drawControl);
+    map.on(L.Draw.Event.CREATED, function (e) {
+        drawnItems.addLayer(e.layer);
+        syncGeoJsonText();
+        rebindAllRiskPopups();
+    });
+    map.on(L.Draw.Event.EDITED, function (e) {
+        syncGeoJsonText();
+        rebindAllRiskPopups();
+    });
+    map.on(L.Draw.Event.DELETED, function (e) {
+        syncGeoJsonText();
+        rebindAllRiskPopups();
+    });
+    updateHazardLayer();
+}
+
+// --- GeoJSON sync logic ---
+function syncGeoJsonText() {
+    ignoreGeoJsonChange = true;
+    const geojson = drawnItems.toGeoJSON();
+    document.getElementById('geojsonText').value = JSON.stringify(geojson, null, 2);
+    ignoreGeoJsonChange = false;
+}
+
+// Hàm chuyển đổi Circle thành Polygon
+function circleToPolygon(center, radius, numPoints = 32) {
+    const coordinates = [];
+    const [lng, lat] = center;
+
+    for (let i = 0; i < numPoints; i++) {
+        const angle = (i / numPoints) * 2 * Math.PI;
+
+        // Tính toán offset theo hướng bắc-nam và đông-tây
+        const latOffset = (radius / 111320) * Math.cos(angle);
+        const lngOffset = (radius / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
+
+        coordinates.push([lng + lngOffset, lat + latOffset]);
+    }
+
+    // Đóng polygon
+    coordinates.push(coordinates[0]);
+    return coordinates;
+}
+
+// Lắng nghe click vào từng layer để phân tích risk
+function bindRiskPopupToLayer(layer) {
+    console.log('Binding click event to layer:', layer);
+    // Remove existing click handlers to prevent duplicate calls
+    layer.off('click');
+    layer.on('click', async function(e) {
+        console.log('Layer clicked!', layer);
+
+        // Save selected polygon for demo
+        selectedPolygon = layer;
+
+        // Prevent multiple API calls
+        if (isAnalyzing) {
+            console.log('Analysis already in progress, skipping...');
+            return;
+        }
+
+        isAnalyzing = true;
+
+        // Lấy geojson của layer
+        const geojson = layer.toGeoJSON();
+
+        // Xử lý trường hợp Circle (Point) thành Polygon
+        let polygonGeometry = geojson.geometry;
+        if (geojson.geometry.type === 'Point' && layer instanceof L.Circle) {
+            const center = geojson.geometry.coordinates;
+            const radius = layer.getRadius(); // Lấy bán kính của circle
+            const polygonCoords = circleToPolygon(center, radius);
+            polygonGeometry = {
+                type: 'Polygon',
+                coordinates: [polygonCoords]
+            };
+        }
+
+        // Lấy config hiện tại
+        const hazardUrl = document.getElementById('hazardUrl').value;
+        const baseUrl = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
+        const gridSize = parseInt(document.getElementById('gridSize').value);
+        const zoom = parseInt(document.getElementById('zoom').value);
+        // Hiển thị popup loading
+        layer.bindPopup('Calculating risk...').openPopup(e.latlng || undefined);
+        try {
+            // Gọi API phân tích risk
+            console.log('original geojson', geojson.geometry);
+            console.log('processed geometry', polygonGeometry);
+
+            // Chuẩn bị payload cho API
+            const payload = {
+                polygon: polygonGeometry,
+                hazardTiles: [{url: hazardUrl}],
+                baseTileUrl: baseUrl,
+                gridSize,
+                zoom,
+                hazardConfig: getHazardConfig(),
+                currentLocation: {
+                    lat: e.latlng.lat,
+                    lon: e.latlng.lng
+                }
+            };
+
+            // Gọi API
+            const response = await fetch('https://dev-public-api.uni-voice.biz/api/v1/hazardmap/risk-analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.status !== 'OK') {
+                throw new Error('API returned error status');
+            }
+
+            // Hiển thị kết quả risk
+            let html = '<b>Risk Analysis</b><br/>';
+
+            // Thêm thông tin về hình dạng
+            if (layer instanceof L.Circle) {
+                const radius = layer.getRadius();
+                const center = layer.getLatLng();
+                html += `<b>Circle Info:</b><br/>`;
+                html += `Radius: ${radius.toFixed(1)}m<br/>`;
+                html += `Center: ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}<br/>`;
+                html += `Area: ${(Math.PI * radius * radius).toFixed(0)}m²<br/>`;
+                html += '<br/>';
+            } else if (layer instanceof L.Rectangle) {
+                const bounds = layer.getBounds();
+                const area = (bounds.getNorthEast().lat - bounds.getSouthWest().lat) *
+                           (bounds.getNorthEast().lng - bounds.getSouthWest().lng) * 111320 * 111320;
+                html += `<b>Rectangle Info:</b><br/>`;
+                html += `Bounds: ${bounds.getSouthWest().lat.toFixed(6)}, ${bounds.getSouthWest().lng.toFixed(6)} to ${bounds.getNorthEast().lat.toFixed(6)}, ${bounds.getNorthEast().lng.toFixed(6)}<br/>`;
+                html += `Area: ${area.toFixed(0)}m²<br/>`;
+                html += '<br/>';
+            } else if (layer instanceof L.Polygon) {
+                const latlngs = layer.getLatLngs()[0]; // Lấy coordinates của polygon
+                const area = L.GeometryUtil.geodesicArea(latlngs);
+                html += `<b>Polygon Info:</b><br/>`;
+                html += `Vertices: ${latlngs.length}<br/>`;
+                html += `Area: ${area.toFixed(0)}m²<br/>`;
+                html += '<br/>';
+            }
+
+            html += `<b>Total Points:</b> ${result.data.stats.total}<br/>`;
+            html += `<b>Water Points:</b> ${result.data.waterCount}<br/>`;
+            html += '<b>Risk Distribution:</b><br/>';
+            Object.entries(result.data.stats).forEach(([level, count]) => {
+                if (level !== 'total' && count > 0) {
+                    const ratio = ((count / result.data.stats.total) * 100).toFixed(1);
+                    html += `Level ${level}: ${count} (${ratio}%)<br/>`;
+                }
+            });
+
+            // Thêm thông tin về điểm gần nhất nếu có
+            if (result.data.nearestPoints) {
+                html += '<br/><b>Nearest Points:</b><br/>';
+                Object.entries(result.data.nearestPoints).forEach(([level, point]) => {
+                    html += `Level ${level}: ${point.distance.toFixed(1)}m away<br/>`;
+                });
+            }
+
+            // Thêm thông tin về rủi ro tại vị trí hiện tại
+            if (result.data.currentLocationRisk) {
+                const currentRisk = result.data.currentLocationRisk;
+                const riskLevel = currentRisk.riskLevel;
+                const isWater = currentRisk.isWater;
+
+                html += '<br/><b>Current Location Risk:</b><br/>';
+                html += `Risk Level: <b>${riskLevel}</b><br/>`;
+
+                // Hiển thị thông tin chi tiết về level nếu có trong hazardConfig
+                if (result.data.hazardConfig && result.data.hazardConfig.levels && result.data.hazardConfig.levels[riskLevel]) {
+                    const levelInfo = result.data.hazardConfig.levels[riskLevel];
+                    html += `Level Name: <b>${levelInfo.name}</b><br/>`;
+                    html += `Description: <b>${levelInfo.description}</b><br/>`;
+                    html += `Color: <span style="background-color: ${levelInfo.color}; padding: 2px 6px; border-radius: 3px; color: ${levelInfo.color === '#FFFFFF' ? '#000' : '#fff'}">${levelInfo.color}</span><br/>`;
+                }
+            }
+
+            // Thêm thông tin độ cao DEM nếu có
+            if ('demElevation' in result.data) {
+                const elev = result.data.demElevation;
+                html += `<br/><b>DEM Elevation:</b><br/>`;
+                if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+                    html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                    html += `Source: ${elev.source || ''}<br/>`;
+                    if (elev.position) {
+                        html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
+                        if (elev.position.zoom !== undefined) {
+                            html += `Zoom: ${elev.position.zoom}<br/>`;
+                        }
+                    }
+                    if (elev.time !== undefined) {
+                        html += `Time: ${elev.time}ms<br/>`;
+                    }
+                } else {
+                    html += `<span style="color:#f44336">Could not load</span><br/>`;
+                }
+            }
+
+            // Thêm thông tin độ cao GSI nếu có
+            if ('gsiElevation' in result.data) {
+                const elev = result.data.gsiElevation;
+                html += `<br/><b>GSI Elevation:</b><br/>`;
+                if (elev && elev.elevation !== undefined && elev.elevation !== null) {
+                    html += `Elevation: <b>${elev.elevation}m</b><br/>`;
+                    if (elev.latitude !== undefined && elev.longitude !== undefined) {
+                        html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
+                    }
+                    if (elev.time !== undefined) {
+                        html += `Time: ${elev.time}ms<br/>`;
+                    }
+                } else {
+                    html += `<span style="color:#f44336">Could not load</span><br/>`;
+                }
+            }
+
+            layer.setPopupContent(html);
+        } catch (err) {
+            console.error(err);
+            layer.setPopupContent('Risk analysis failed! Error: ' + err.message);
+        } finally {
+            isAnalyzing = false;
+        }
+    });
+}
+
+// Hàm xử lý import GeoJSON
+function importGeoJSON(geojsonText) {
+    console.log('Importing GeoJSON...');
+    if (ignoreGeoJsonChange || isImporting) return;
+    isImporting = true;
+    try {
+        const geojson = JSON.parse(geojsonText);
+        console.log('Parsed GeoJSON:', geojson);
+        drawnItems.clearLayers();
+
+                let firstLayer = null;
+
+        L.geoJSON(geojson, {
+            onEachFeature: function (feature, layer) {
+                drawnItems.addLayer(layer);
+                // Lưu layer đầu tiên để move map
+                if (!firstLayer) {
+                    firstLayer = layer;
+                }
+            }
+        });
+
+
+
+        // Bind events cho các layer mới được import
+        console.log('About to bind events...');
+        // Bind events ngay lập tức
+        rebindAllRiskPopups();
+
+        // Tự động move map đến polygon đầu tiên nếu có với hiệu ứng bay
+        if (firstLayer && map) {
+            // Nếu là GeoJSON FeatureCollection, lấy feature đầu tiên
+            if (geojson.type === 'FeatureCollection' && geojson.features.length > 0) {
+                const firstFeature = geojson.features[0];
+                if (firstFeature.geometry && firstFeature.geometry.type === 'Polygon') {
+                    // Tính bounds của polygon đầu tiên
+                    const coordinates = firstFeature.geometry.coordinates[0];
+                    const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
+                    map.flyToBounds(bounds, {
+                        padding: [20, 20],
+                        duration: 1.5,
+                        easeLinearity: 0.25
+                    }).on('end', function() {
+                        console.log('Map fly completed, rebinding events...');
+                        rebindAllRiskPopups();
+                    });
+                }
+            } else if (geojson.type === 'Feature' && geojson.geometry && geojson.geometry.type === 'Polygon') {
+                // Nếu là single Feature với Polygon
+                const coordinates = geojson.geometry.coordinates[0];
+                const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
+                map.flyToBounds(bounds, {
+                    padding: [20, 20],
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                }).on('end', function() {
+                    console.log('Map fly completed, rebinding events...');
+                    rebindAllRiskPopups();
+                });
+            } else if (geojson.type === 'Polygon') {
+                // Nếu là Polygon trực tiếp
+                const coordinates = geojson.coordinates[0];
+                const bounds = L.latLngBounds(coordinates.map(coord => [coord[1], coord[0]]));
+                map.flyToBounds(bounds, {
+                    padding: [20, 20],
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                }).on('end', function() {
+                    console.log('Map fly completed, rebinding events...');
+                    rebindAllRiskPopups();
+                });
+            } else {
+                // Fallback: move đến layer đầu tiên
+                map.flyToBounds(firstLayer.getBounds(), {
+                    padding: [20, 20],
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                }).on('end', function() {
+                    console.log('Map fly completed, rebinding events...');
+                    rebindAllRiskPopups();
+                });
+            }
+        } else {
+            // Nếu không có fly animation, bind events ngay
+            setTimeout(() => {
+                console.log('No fly animation, rebinding events...');
+                rebindAllRiskPopups();
+            }, 100);
+        }
+    } catch (e) {
+        console.error('Error parsing GeoJSON:', e);
+        // ignore parse error
+    } finally {
+        isImporting = false;
+    }
+}
+
+// Gắn lại sự kiện cho tất cả layer mỗi khi vẽ/sửa/xóa
+function rebindAllRiskPopups() {
+    console.log('Rebinding all risk popups...');
+    let boundCount = 0;
+    drawnItems.eachLayer(function(layer) {
+        // Xử lý tất cả các loại layer có thể phân tích risk
+        if (layer instanceof L.Polygon || layer instanceof L.Rectangle || layer instanceof L.Circle) {
+            bindRiskPopupToLayer(layer);
+            boundCount++;
+        }
+    });
+    console.log(`Bound events to ${boundCount} layers`);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Load config from localStorage first
+    const configLoaded = loadConfigFromLocalStorage();
+
+    initMap();
+    syncGeoJsonText();
+
+    // Khởi tạo giao diện cấu hình hazard
+    renderRiskLevels();
+    renderWaterColors();
+
+    // Apply loaded config to map if config was loaded
+    if (configLoaded) {
+        applyConfigToMap();
+    }
+
+    // Khi sửa textarea, cập nhật lại map
+    let importTimeout;
+    document.getElementById('geojsonText').addEventListener('input', function() {
+        // Debounce để tránh import nhiều lần
+        clearTimeout(importTimeout);
+        importTimeout = setTimeout(() => {
+            importGeoJSON(this.value);
+        }, 300);
+    });
+
+    // Sự kiện show/hide hazard layer
+    document.getElementById('showHazardLayer').addEventListener('change', function() {
+        updateHazardLayer();
+        saveConfigToLocalStorage();
+    });
+
+    // Add event listeners for config changes
+    document.getElementById('hazardUrl').addEventListener('change', function() {
+        updateHazardLayer();
+        saveConfigToLocalStorage();
+    });
+    document.getElementById('hazardUrl').addEventListener('blur', function() {
+        updateHazardLayer();
+        saveConfigToLocalStorage();
+    });
+
+    document.getElementById('gridSize').addEventListener('change', saveConfigToLocalStorage);
+    document.getElementById('gridSize').addEventListener('blur', saveConfigToLocalStorage);
+    document.getElementById('zoom').addEventListener('change', saveConfigToLocalStorage);
+    document.getElementById('zoom').addEventListener('blur', saveConfigToLocalStorage);
+    document.getElementById('hazardName').addEventListener('change', saveConfigToLocalStorage);
+    document.getElementById('hazardName').addEventListener('blur', saveConfigToLocalStorage);
+});
+</script>
+</body>
+</html>
