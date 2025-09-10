@@ -37,11 +37,14 @@ export interface GridPoint {
 // Hazard tile configuration
 
 export type HazardTileType = 'raster' | 'wms' | 'arcgis';
+export type MergeStrategy = 'max' | 'average' | 'weighted' | 'priority';
+
 export interface HazardTileConfig {
   url: string; // URL template for hazard tile
   weight?: number; // Weight for this hazard (default: 1)
   name?: string; // Optional name for this hazard source
   type?: HazardTileType; // Optional type for this hazard source
+  priority?: number; // Priority for this hazard (used with 'priority' strategy)
 }
 
 // Analysis options (simplified)
@@ -53,6 +56,7 @@ export interface AnalyzeRiskOptions {
   zoom: number;
   hazardConfig?: HazardConfig; // Hazard configuration
   currentLocation?: { lat: number; lon: number };
+  mergeStrategy?: MergeStrategy; // Strategy to merge risk levels from multiple tiles
 }
 
 // Analysis result

@@ -53,14 +53,83 @@ function getRiskInfoFromTile(
   return { riskLevel, isWater };
 }
 
-// Calculate combined risk from multiple hazard tiles
+// Merge risk levels from multiple tiles based on specified strategy
+function mergeRiskLevels(
+  riskLevels: { level: number; color?: string; name?: string }[],
+  strategy: 'max' | 'average' | 'weighted' | 'priority' = 'max',
+  weights: number[] = [],
+  priorities: number[] = []
+): { level: number; color?: string; name?: string } {
+  // console.log('mergeRiskLevels', riskLevels, strategy, weights, priorities);
+  if (riskLevels.length === 0) {
+    return { level: 0, color: '#000000', name: 'No Risk' };
+  }
+
+  if (riskLevels.length === 1) {
+    return riskLevels[0];
+  }
+
+  switch (strategy) {
+    case 'max':
+      console.log('max strategy', riskLevels);
+      // Return the highest risk level (safest approach)
+      // Use when safety is priority and false positives are acceptable
+      const maxLevel = riskLevels.reduce((max, current) => {
+        return current.level > max.level ? current : max;
+      });
+      return maxLevel;
+
+    case 'average':
+      // Calculate average risk level (balanced approach)
+      // Use when all tile sources are equally reliable
+      const avgLevel = Math.round(
+        riskLevels.reduce((sum, rl) => sum + rl.level, 0) / riskLevels.length
+      );
+      return riskLevels.find(rl => rl.level === avgLevel) || riskLevels[0];
+
+    case 'weighted':
+      // Weighted average based on provided weights
+      // Use when tile sources have different reliability levels
+      if (weights.length !== riskLevels.length) {
+        console.warn('Weights length does not match risk levels length, falling back to max strategy');
+        return mergeRiskLevels(riskLevels, 'max');
+      }
+
+      const weightedSum = riskLevels.reduce((sum, rl, index) => {
+        return sum + (rl.level * weights[index]);
+      }, 0);
+      const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+      const weightedLevel = Math.round(weightedSum / totalWeight);
+      return riskLevels.find(rl => rl.level === weightedLevel) || riskLevels[0];
+
+    case 'priority':
+      // Use priority-based selection (highest priority wins)
+      // Use when one tile source is more authoritative than others
+      if (priorities.length !== riskLevels.length) {
+        console.warn('Priorities length does not match risk levels length, falling back to max strategy');
+        return mergeRiskLevels(riskLevels, 'max');
+      }
+
+      const maxPriority = Math.max(...priorities);
+      const maxPriorityIndex = priorities.indexOf(maxPriority);
+      return riskLevels[maxPriorityIndex];
+
+    default:
+      // Fallback to max strategy for unknown strategies
+      return mergeRiskLevels(riskLevels, 'max');
+  }
+}
+
+// Calculate combined risk from multiple hazard tiles using merge strategy
 function getCombinedRiskFromTiles(
   hazardPngs: (any | undefined)[],
   basePng: any | undefined,
   px: number,
   py: number,
   hazardConfig: HazardConfig | undefined,
-  weights: number[] = []
+  mergeStrategy: 'max' | 'average' | 'weighted' | 'priority' = 'max',
+  weights: number[] = [],
+  priorities: number[] = []
 ) {
   // Get base tile water detection
   const [br, bg, bb] = getPixelFromPNG(basePng, px, py);
@@ -70,27 +139,26 @@ function getCombinedRiskFromTiles(
     return { riskLevel: 0, isWater: true };
   }
 
-  // Calculate weighted risk from all hazard tiles
-  let totalWeightedRisk = 0;
-  let totalWeight = 0;
+  // Collect risk levels from all hazard tiles
+  const riskLevels: { level: number; color?: string; name?: string }[] = [];
 
   for (let i = 0; i < hazardPngs.length; i++) {
     const hazardPng = hazardPngs[i];
-    const weight = weights[i] || 1;
-
     if (hazardPng) {
       const [r, g, b] = getPixelFromPNG(hazardPng, px, py);
       const riskLevel = classifyRiskFromRGB(r, g, b, hazardConfig);
-      totalWeightedRisk += riskLevel * weight;
-      totalWeight += weight;
+      riskLevels.push({
+        level: riskLevel,
+        color: `rgb(${r},${g},${b})`,
+        name: `${hazardConfig?.name}`
+      });
     }
   }
 
-  // Calculate average weighted risk level
-  const combinedRiskLevel =
-    totalWeight > 0 ? Math.round(totalWeightedRisk / totalWeight) : 0;
+  // Merge risk levels using the specified strategy
+  const mergedRisk = mergeRiskLevels(riskLevels, mergeStrategy, weights, priorities);
 
-  return { riskLevel: combinedRiskLevel, isWater: false };
+  return { riskLevel: mergedRisk.level, isWater: false };
 }
 
 // Calculate statistics and optionally nearestPoints
@@ -100,7 +168,9 @@ async function calculateStatsAndOptionallyNearestPoints(
   baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>,
   hazardConfig: HazardConfig | undefined,
   currentLocation: { lat: number; lon: number } | undefined, // can be undefined
-  weights: number[] = []
+  mergeStrategy: 'max' | 'average' | 'weighted' | 'priority' = 'max',
+  weights: number[] = [],
+  priorities: number[] = []
 ): Promise<{
   stats: { [level: string]: number; total: number };
   nearestPoints?: any;
@@ -193,7 +263,9 @@ async function calculateStatsAndOptionallyNearestPoints(
         samplePoint.pixel.x,
         samplePoint.pixel.y,
         hazardConfig,
-        weights
+        mergeStrategy,
+        weights,
+        priorities
       );
       currentLocationRisk = { riskLevel, isWater };
     }
@@ -221,15 +293,17 @@ async function calculateStatsAndOptionallyNearestPoints(
         basePng = readPNGFromBuffer(await baseTileProvider(z, x, y));
       } catch {}
 
-      for (const p of points) {
-        const { riskLevel, isWater } = getCombinedRiskFromTiles(
-          hazardPngs,
-          basePng,
-          p.pixel.x,
-          p.pixel.y,
-          hazardConfig,
-          weights
-        );
+        for (const p of points) {
+          const { riskLevel, isWater } = getCombinedRiskFromTiles(
+            hazardPngs,
+            basePng,
+            p.pixel.x,
+            p.pixel.y,
+            hazardConfig,
+            mergeStrategy,
+            weights,
+            priorities
+          );
         if (isWater) {
           waterCount++;
           continue;
@@ -282,7 +356,7 @@ export async function analyzeRiskInPolygon(
   options: AnalyzeRiskOptions,
   cache?: TileCache
 ): Promise<any> {
-  const { hazardTiles, baseTileUrl } = options;
+  const { hazardTiles, baseTileUrl, mergeStrategy = 'max' } = options;
   // console.log('analyzeRiskInPolygon', JSON.stringify(options, null, 2));
 
   // Create tile providers for all hazard tiles
@@ -291,8 +365,9 @@ export async function analyzeRiskInPolygon(
   );
   const baseTileProvider = createTileProvider(baseTileUrl, cache);
 
-  // Extract weights from hazard tile configurations
+  // Extract weights and priorities from hazard tile configurations
   const weights = hazardTiles.map(hazardTile => hazardTile.weight || 1);
+  const priorities = hazardTiles.map(hazardTile => hazardTile.priority || 1);
 
   const grid = createGrid(options.polygon, options.gridSize, options.zoom);
   const tileCoordSet = new Set(
@@ -310,7 +385,9 @@ export async function analyzeRiskInPolygon(
     baseTileProvider,
     options.hazardConfig,
     options.currentLocation,
-    weights
+    mergeStrategy,
+    weights,
+    priorities
   );
 }
 
@@ -325,6 +402,8 @@ export type {
   HazardConfig,
   RiskLevelConfig,
   HazardTileConfig,
+  HazardTileType,
+  MergeStrategy,
 } from './types';
 
 export { NodeRasterReader } from './raster';

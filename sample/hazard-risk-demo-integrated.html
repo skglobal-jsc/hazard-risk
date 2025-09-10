@@ -226,6 +226,66 @@
             background: #da190b;
         }
 
+        /* Hazard Tile Styles */
+        .hazard-tile-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        .hazard-tile-item:hover {
+            background: #f0f0f0;
+        }
+        .hazard-tile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .hazard-tile-header label {
+            margin: 0;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        .hazard-tile-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .hazard-tile-controls input[type="checkbox"] {
+            margin: 0;
+        }
+        .hazard-tile-controls input[type="number"] {
+            width: 60px;
+            margin: 0;
+            padding: 4px 6px;
+            font-size: 12px;
+        }
+        .hazard-tile-url {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            background: #fff;
+        }
+        .hazard-tile-name {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            background: #fff;
+        }
+
         /* Demo Tab Styles */
         .demo-controls {
             padding: 15px;
@@ -348,21 +408,31 @@
                   <label for="baseUrl">Water Map Tile URL</label>
                   <input readonly type="text" id="baseUrl" value="https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png">
                 </div>
-                <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <label for="hazardUrl" style="margin: 0; flex: 1;">Hazard Tile URL</label>
-                    <label style="margin: 0; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
-                        <input type="checkbox" id="showHazardLayer" checked> <span>Show Layer</span>
-                    </label>
+                <div class="form-group">
+                    <label>Hazard Tiles</label>
+                    <div id="hazardTilesContainer">
+                        <!-- Hazard tiles will be populated by JavaScript -->
+                    </div>
+                    <button type="button" class="add-level-btn" onclick="addHazardTile()">+ Add Hazard Tile</button>
                 </div>
-                <input type="text" id="hazardUrl" value="https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png">
+
+                <div class="form-group">
+                    <label for="mergeStrategy">Merge Strategy</label>
+                    <select id="mergeStrategy" style="width: 100%; padding: 7px 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; font-size: 13px; background: #f9f9f9;">
+                        <option value="max">Max (Highest Risk)</option>
+                        <option value="average">Average (Balanced)</option>
+                        <option value="weighted">Weighted (By Weights)</option>
+                        <option value="priority">Priority (Highest Priority)</option>
+                    </select>
+                </div>
 
                 <div class="form-group">
                     <label for="gridSize">Grid Size (meters)</label>
-                    <input type="number" id="gridSize" value="100" min="10" max="1000">
+                    <input type="number" id="gridSize" value="20" min="10" max="1000">
                 </div>
                 <div class="form-group">
                     <label for="zoom">Zoom level</label>
-                    <input type="number" id="zoom" value="14" min="2" max="20">
+                    <input type="number" id="zoom" value="13" min="2" max="20">
                 </div>
             </form>
 
@@ -370,7 +440,7 @@
                 <h3>Hazard Configuration</h3>
                 <div class="form-group">
                     <label for="hazardName">Hazard Name</label>
-                    <input type="text" id="hazardName" value="Tsunami Depth (GSI Japan)">
+                    <input type="text" id="hazardName" value="House collapse">
                 </div>
 
                 <div class="form-group">
@@ -388,6 +458,12 @@
                     </div>
                     <button type="button" class="add-color-btn" onclick="addWaterColor()">+ Add Color</button>
                 </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+                <button type="button" class="demo-btn" onclick="resetToDefaults()" style="width: 100%; background: #f44336; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">
+                    🔄 Reset All Settings to Defaults
+                </button>
             </div>
         </div>
 
@@ -411,6 +487,14 @@
                     </div>
                     <div class="step-item" id="step4">
                         <span class="step-number">4</span>
+                        <span class="step-text">Load Hazard Tiles</span>
+                    </div>
+                    <div class="step-item" id="step5">
+                        <span class="step-number">5</span>
+                        <span class="step-text">Merge Strategy</span>
+                    </div>
+                    <div class="step-item" id="step6">
+                        <span class="step-number">6</span>
                         <span class="step-text">Risk Analysis</span>
                     </div>
                 </div>
@@ -446,7 +530,7 @@ function showTab(tab) {
 
 // --- Map & Draw logic ---
 let map, drawnItems, drawControl, ignoreGeoJsonChange = false;
-let hazardLayer = null;
+let hazardLayers = [];
 let isAnalyzing = false; // Prevent multiple API calls
 let isImporting = false; // Prevent multiple imports
 
@@ -460,22 +544,55 @@ let demoLayers = {
 let currentDemoStep = 0;
 let selectedPolygon = null;
 
-// --- Hazard Configuration ---
-let hazardConfig = {
-    name: "Flood Depth (GSI Japan)",
-    levels: {
-        "0": { name: "level0", color: "#FFFFFF", description: "0m" },
-        "1": { name: "level1", color: "#FFFFB3", description: "<0.3m" },
-        "2": { name: "level2", color: "#F7F5A9", description: "<0.5m" },
-        "3": { name: "level3", color: "#F8E1A6", description: "0.5~1m" },
-        "4": { name: "level4", color: "#FFD8C0", description: "0.5~3m" },
-        "5": { name: "level5", color: "#FFB7B7", description: "3~5m" },
-        "6": { name: "level6", color: "#FF9191", description: "5~10m" },
-        "7": { name: "level7", color: "#F285C9", description: "10~20m" },
-        "8": { name: "level8", color: "#DC7ADC", description: ">20m" }
+// --- Default Configuration ---
+const DEFAULT_CONFIG = {
+    hazardConfig: {
+        name: "House collapse",
+        levels: {
+            "0": { name: "level0", color: "#FFFFFF", description: "0m" },
+            "1": { name: "level1", color: "#FF0000", description: "Risk of flooding" }
+        },
+        waterColors: ["#bed2ff"]
     },
-    waterColors: ["#bed2ff"]
+    hazardTiles: [
+        {
+            url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_hanran_data/{z}/{x}/{y}.png",
+            name: "House collapse 0",
+            weight: 1.0,
+            priority: 1,
+            show: true
+        },
+        {
+            url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_kagan_data/{z}/{x}/{y}.png",
+            name: "House collapse 1",
+            weight: 1.0,
+            priority: 1,
+            show: true
+        }
+    ],
+    formSettings: {
+        gridSize: 20,
+        zoom: 13,
+        hazardName: "House collapse",
+        mergeStrategy: "max"
+    },
+    mapSettings: {
+        center: [35.00987961803894, 138.38045440614223],
+        zoom: 13
+    }
 };
+
+// --- Current Configuration ---
+let hazardConfig = { ...DEFAULT_CONFIG.hazardConfig };
+let hazardTiles = [...DEFAULT_CONFIG.hazardTiles];
+
+// --- Initialize Form with Default Values ---
+function initializeFormWithDefaults() {
+    document.getElementById('gridSize').value = DEFAULT_CONFIG.formSettings.gridSize;
+    document.getElementById('zoom').value = DEFAULT_CONFIG.formSettings.zoom;
+    document.getElementById('hazardName').value = DEFAULT_CONFIG.formSettings.hazardName;
+    document.getElementById('mergeStrategy').value = DEFAULT_CONFIG.formSettings.mergeStrategy;
+}
 
 function renderRiskLevels() {
     const container = document.getElementById('riskLevels');
@@ -528,7 +645,7 @@ function addRiskLevel() {
     const newLevel = Object.keys(hazardConfig.levels).length;
     hazardConfig.levels[newLevel] = {
         name: `level${newLevel}`,
-        color: "#FFFFFF",
+        color: DEFAULT_CONFIG.hazardConfig.levels["0"].color,
         description: "New level"
     };
     renderRiskLevels();
@@ -548,7 +665,7 @@ function removeWaterColor(index) {
 }
 
 function addWaterColor() {
-    hazardConfig.waterColors.push("#FFFFFF");
+    hazardConfig.waterColors.push(DEFAULT_CONFIG.hazardConfig.waterColors[0]);
     renderWaterColors();
     saveConfigToLocalStorage();
 }
@@ -559,6 +676,117 @@ function getHazardConfig() {
         levels: { ...hazardConfig.levels },
         waterColors: [...hazardConfig.waterColors]
     };
+}
+
+// --- Hazard Tiles Management ---
+function renderHazardTiles() {
+    const container = document.getElementById('hazardTilesContainer');
+    container.innerHTML = '';
+
+    hazardTiles.forEach((tile, index) => {
+        const tileItem = document.createElement('div');
+        tileItem.className = 'hazard-tile-item';
+        tileItem.innerHTML = `
+            <div class="hazard-tile-header">
+                <label>Hazard Tile ${index + 1}</label>
+                <div class="hazard-tile-controls">
+                    <label>
+                        <input type="checkbox" ${tile.show ? 'checked' : ''} onchange="updateHazardTile(${index}, 'show', this.checked)">
+                        Show
+                    </label>
+                    <input type="number" placeholder="Weight" value="${tile.weight}" step="0.1" min="0" max="10" onchange="updateHazardTile(${index}, 'weight', parseFloat(this.value))">
+                    <input type="number" placeholder="Priority" value="${tile.priority}" min="1" max="10" onchange="updateHazardTile(${index}, 'priority', parseInt(this.value))">
+                    <button type="button" class="remove-level-btn" onclick="removeHazardTile(${index})">×</button>
+                </div>
+            </div>
+            <input type="text" class="hazard-tile-name" placeholder="Tile Name" value="${tile.name}" onchange="updateHazardTile(${index}, 'name', this.value)">
+            <input type="text" class="hazard-tile-url" placeholder="Tile URL" value="${tile.url}" onchange="updateHazardTile(${index}, 'url', this.value)">
+        `;
+        container.appendChild(tileItem);
+    });
+}
+
+function updateHazardTile(index, field, value) {
+    hazardTiles[index][field] = value;
+    renderHazardTiles();
+    updateHazardLayers();
+    saveConfigToLocalStorage();
+}
+
+function removeHazardTile(index) {
+    hazardTiles.splice(index, 1);
+    renderHazardTiles();
+    updateHazardLayers();
+    saveConfigToLocalStorage();
+}
+
+function addHazardTile() {
+    hazardTiles.push({
+        url: "https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png",
+        name: `Hazard Tile ${hazardTiles.length + 1}`,
+        weight: DEFAULT_CONFIG.hazardTiles[0].weight,
+        priority: DEFAULT_CONFIG.hazardTiles[0].priority,
+        show: DEFAULT_CONFIG.hazardTiles[0].show
+    });
+    renderHazardTiles();
+    updateHazardLayers();
+    saveConfigToLocalStorage();
+}
+
+function getHazardTiles() {
+    return hazardTiles.filter(tile => tile.show).map(tile => ({
+        url: tile.url,
+        name: tile.name,
+        weight: tile.weight,
+        priority: tile.priority
+    }));
+}
+
+// --- Reset to Defaults Function ---
+function resetToDefaults() {
+    if (confirm('Are you sure you want to reset ALL settings to default values? This will clear all your current configurations and reset the map view.')) {
+        // Reset configurations to defaults
+        hazardConfig = { ...DEFAULT_CONFIG.hazardConfig };
+        hazardTiles = [...DEFAULT_CONFIG.hazardTiles];
+
+        // Reset form inputs to defaults
+        document.getElementById('gridSize').value = DEFAULT_CONFIG.formSettings.gridSize;
+        document.getElementById('zoom').value = DEFAULT_CONFIG.formSettings.zoom;
+        document.getElementById('hazardName').value = DEFAULT_CONFIG.formSettings.hazardName;
+        document.getElementById('mergeStrategy').value = DEFAULT_CONFIG.formSettings.mergeStrategy;
+
+        // Reset map view to default
+        if (map) {
+            map.setView(DEFAULT_CONFIG.mapSettings.center, DEFAULT_CONFIG.mapSettings.zoom);
+        }
+
+        // Clear all drawn items
+        if (drawnItems) {
+            drawnItems.clearLayers();
+        }
+
+        // Clear GeoJSON textarea
+        document.getElementById('geojsonText').value = '';
+
+        // Reset algorithm demo
+        resetAlgorithmDemo();
+        selectedPolygon = null;
+
+        // Re-render all UI components
+        renderRiskLevels();
+        renderWaterColors();
+        renderHazardTiles();
+
+        // Update map layers
+        updateHazardLayers();
+
+        // Clear localStorage and save new defaults
+        localStorage.removeItem('hazardRiskConfig');
+        saveConfigToLocalStorage();
+
+        // Show success message
+        alert('All settings have been reset to default values!\n\n- Map view reset to default location\n- All drawn polygons cleared\n- All configurations reset to defaults');
+    }
 }
 
 // --- Algorithm Demo Functions ---
@@ -595,7 +823,7 @@ function resetAlgorithmDemo() {
 }
 
 function nextAlgorithmStep() {
-    if (currentDemoStep < 4) {
+    if (currentDemoStep < 6) {
         currentDemoStep++;
         updateDemoStep();
 
@@ -607,6 +835,12 @@ function nextAlgorithmStep() {
                 showFilteredPoints();
                 break;
             case 4:
+                showLoadHazardTiles();
+                break;
+            case 5:
+                showMergeStrategy();
+                break;
+            case 6:
                 showRiskAnalysis();
                 break;
         }
@@ -615,7 +849,7 @@ function nextAlgorithmStep() {
 
 function updateDemoStep() {
     // Update step indicators
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 6; i++) {
         const stepElement = document.getElementById(`step${i}`);
         stepElement.classList.remove('active', 'completed');
 
@@ -733,30 +967,114 @@ function showFilteredPoints() {
     `;
 }
 
-function showRiskAnalysis() {
+function showLoadHazardTiles() {
     if (!selectedPolygon) return;
 
-    document.getElementById('demoDescription').textContent = 'Step 4: Risk Analysis - Each remaining point is analyzed for risk level based on hazard map data. Colors represent different risk levels.';
+    const activeTiles = hazardTiles.filter(tile => tile.show);
+    const tileCount = activeTiles.length;
+
+    document.getElementById('demoDescription').textContent = 'Step 4: Load Hazard Tiles - The algorithm loads multiple hazard tile sources simultaneously for comprehensive risk assessment.';
     document.getElementById('demoStats').innerHTML = `
-        <strong>Risk Analysis:</strong><br/>
-        • Green: Low risk<br/>
-        • Yellow: Medium risk<br/>
-        • Orange: High risk<br/>
-        • Red: Very high risk
+        <strong>Hazard Tiles Loading:</strong><br/>
+        Active Tiles: ${tileCount}<br/>
+        ${activeTiles.map((tile, index) =>
+            `Tile ${index + 1}: ${tile.name}<br/>` +
+            `&nbsp;&nbsp;Weight: ${tile.weight}, Priority: ${tile.priority}<br/>`
+        ).join('')}
+        <br/><strong>Process:</strong><br/>
+        • Fetch tiles from all active sources<br/>
+        • Load pixel data for each tile<br/>
+        • Prepare for risk level extraction
     `;
 
-    // Simulate risk analysis by coloring points
+    // Simulate tile loading by showing tile indicators
+    if (demoLayers.gridPoints) {
+        demoLayers.gridPoints.eachLayer((pointLayer, index) => {
+            const point = pointLayer.getLatLng();
+            if (selectedPolygon.getBounds().contains(point)) {
+                // Simulate different tile sources with different colors
+                const tileIndex = index % tileCount;
+                const colors = ['#2196F3', '#9C27B0', '#FF5722', '#4CAF50', '#FF9800'];
+                const color = colors[tileIndex] || '#666';
+                pointLayer.setStyle({
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.6
+                });
+            }
+        });
+    }
+}
+
+function showMergeStrategy() {
+    if (!selectedPolygon) return;
+
+    const mergeStrategy = document.getElementById('mergeStrategy').value;
+    const activeTiles = hazardTiles.filter(tile => tile.show);
+
+    let strategyDescription = '';
+    let strategyProcess = '';
+
+    switch (mergeStrategy) {
+        case 'max':
+            strategyDescription = 'Maximum Risk Strategy - Returns the highest risk level from all tiles (safest approach)';
+            strategyProcess = '• Compare risk levels from all tiles<br/>• Select the highest risk level<br/>• Use when safety is priority';
+            break;
+        case 'average':
+            strategyDescription = 'Average Risk Strategy - Calculates average risk level from all tiles (balanced approach)';
+            strategyProcess = '• Sum all risk levels<br/>• Divide by number of tiles<br/>• Round to nearest integer<br/>• Use when all sources are equally reliable';
+            break;
+        case 'weighted':
+            strategyDescription = 'Weighted Risk Strategy - Calculates weighted average based on tile weights';
+            strategyProcess = '• Multiply each risk level by its weight<br/>• Sum weighted values<br/>• Divide by total weight<br/>• Use when sources have different reliability';
+            break;
+        case 'priority':
+            strategyDescription = 'Priority Risk Strategy - Uses risk level from highest priority tile';
+            strategyProcess = '• Find tile with highest priority<br/>• Use its risk level<br/>• Use when one source is more authoritative';
+            break;
+    }
+
+    document.getElementById('demoDescription').textContent = `Step 5: Merge Strategy - ${strategyDescription}`;
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Current Strategy: ${mergeStrategy.toUpperCase()}</strong><br/>
+        ${strategyDescription}<br/><br/>
+        <strong>Process:</strong><br/>
+        ${strategyProcess}<br/><br/>
+        <strong>Tile Weights & Priorities:</strong><br/>
+        ${activeTiles.map((tile, index) =>
+            `Tile ${index + 1}: Weight=${tile.weight}, Priority=${tile.priority}`
+        ).join('<br/>')}
+    `;
+
+    // Simulate merge strategy by showing final risk colors
     if (demoLayers.gridPoints) {
         demoLayers.gridPoints.eachLayer(pointLayer => {
             const point = pointLayer.getLatLng();
             if (selectedPolygon.getBounds().contains(point)) {
-                // Simulate risk levels
-                const risk = Math.random();
-                if (risk < 0.3) {
+                // Simulate final merged risk level
+                let finalRisk = 0;
+
+                switch (mergeStrategy) {
+                    case 'max':
+                        finalRisk = Math.max(1, Math.floor(Math.random() * 3) + 1);
+                        break;
+                    case 'average':
+                        finalRisk = Math.floor(Math.random() * 2) + 1;
+                        break;
+                    case 'weighted':
+                        finalRisk = Math.floor(Math.random() * 2) + 1;
+                        break;
+                    case 'priority':
+                        finalRisk = Math.floor(Math.random() * 3) + 1;
+                        break;
+                }
+
+                // Color based on final risk level
+                if (finalRisk === 0) {
                     pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
-                } else if (risk < 0.6) {
+                } else if (finalRisk === 1) {
                     pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
-                } else if (risk < 0.8) {
+                } else if (finalRisk === 2) {
                     pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
                 } else {
                     pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
@@ -764,57 +1082,62 @@ function showRiskAnalysis() {
             }
         });
     }
+}
 
-    // Thêm thông tin độ cao DEM nếu có
-    if ('demElevation' in result.data) {
-        const elev = result.data.demElevation;
-        html += `<br/><b>DEM Elevation:</b><br/>`;
-        if (elev && elev.elevation !== undefined && elev.elevation !== null) {
-            html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-            html += `Source: ${elev.source || ''}<br/>`;
-            if (elev.position) {
-                html += `Position: ${elev.position.lat.toFixed(6)}, ${elev.position.lng.toFixed(6)}<br/>`;
-                if (elev.position.zoom !== undefined) {
-                    html += `Zoom: ${elev.position.zoom}<br/>`;
+function showRiskAnalysis() {
+    if (!selectedPolygon) return;
+
+    document.getElementById('demoDescription').textContent = 'Step 6: Risk Analysis - Final risk assessment with water area exclusion and statistics calculation.';
+    document.getElementById('demoStats').innerHTML = `
+        <strong>Final Risk Analysis:</strong><br/>
+        • Green: Low risk (Level 0)<br/>
+        • Yellow: Medium risk (Level 1)<br/>
+        • Orange: High risk (Level 2)<br/>
+        • Red: Very high risk (Level 3+)<br/>
+        • Blue: Water areas (excluded)<br/><br/>
+        <strong>Process:</strong><br/>
+        • Apply merged risk levels to all points<br/>
+        • Exclude water areas using base tile<br/>
+        • Calculate risk statistics<br/>
+        • Find nearest risk points
+    `;
+
+    // Final risk analysis with water exclusion
+    if (demoLayers.gridPoints) {
+        demoLayers.gridPoints.eachLayer(pointLayer => {
+            const point = pointLayer.getLatLng();
+            if (selectedPolygon.getBounds().contains(point)) {
+                // Simulate water detection and final risk
+                const isWater = Math.random() < 0.1; // 10% chance of water
+
+                if (isWater) {
+                    pointLayer.setStyle({ color: '#2196F3', fillColor: '#2196F3' }); // Blue - Water
+                } else {
+                    const risk = Math.random();
+                    if (risk < 0.3) {
+                        pointLayer.setStyle({ color: '#4CAF50', fillColor: '#4CAF50' }); // Green - Low
+                    } else if (risk < 0.6) {
+                        pointLayer.setStyle({ color: '#FFC107', fillColor: '#FFC107' }); // Yellow - Medium
+                    } else if (risk < 0.8) {
+                        pointLayer.setStyle({ color: '#FF9800', fillColor: '#FF9800' }); // Orange - High
+                    } else {
+                        pointLayer.setStyle({ color: '#F44336', fillColor: '#F44336' }); // Red - Very High
+                    }
                 }
             }
-            if (elev.time !== undefined) {
-                html += `Time: ${elev.time}ms<br/>`;
-            }
-        } else {
-            html += `<span style="color:#f44336">Could not load</span><br/>`;
-        }
+        });
     }
-
-    // Thêm thông tin độ cao GSI nếu có
-    if ('gsiElevation' in result.data) {
-        const elev = result.data.gsiElevation;
-        html += `<br/><b>GSI Elevation:</b><br/>`;
-        if (elev && elev.elevation !== undefined && elev.elevation !== null) {
-            html += `Elevation: <b>${elev.elevation}m</b><br/>`;
-            if (elev.latitude !== undefined && elev.longitude !== undefined) {
-                html += `Position: ${elev.latitude.toFixed(6)}, ${elev.longitude.toFixed(6)}<br/>`;
-            }
-            if (elev.time !== undefined) {
-                html += `Time: ${elev.time}ms<br/>`;
-            }
-        } else {
-            html += `<span style="color:#f44336">Could not load</span><br/>`;
-        }
-    }
-
-    layer.setPopupContent(html);
 }
 
 // --- LocalStorage Management ---
 function saveConfigToLocalStorage() {
     const config = {
-        hazardUrl: document.getElementById('hazardUrl').value,
         gridSize: document.getElementById('gridSize').value,
         zoom: document.getElementById('zoom').value,
-        showHazardLayer: document.getElementById('showHazardLayer').checked,
         hazardName: document.getElementById('hazardName').value,
-        hazardConfig: hazardConfig
+        hazardConfig: hazardConfig,
+        hazardTiles: hazardTiles,
+        mergeStrategy: document.getElementById('mergeStrategy').value
     };
     localStorage.setItem('hazardRiskConfig', JSON.stringify(config));
 }
@@ -826,15 +1149,19 @@ function loadConfigFromLocalStorage() {
             const config = JSON.parse(savedConfig);
 
             // Load basic config
-            if (config.hazardUrl) document.getElementById('hazardUrl').value = config.hazardUrl;
             if (config.gridSize) document.getElementById('gridSize').value = config.gridSize;
             if (config.zoom) document.getElementById('zoom').value = config.zoom;
-            if (config.showHazardLayer !== undefined) document.getElementById('showHazardLayer').checked = config.showHazardLayer;
             if (config.hazardName) document.getElementById('hazardName').value = config.hazardName;
+            if (config.mergeStrategy) document.getElementById('mergeStrategy').value = config.mergeStrategy;
 
             // Load hazard config
             if (config.hazardConfig) {
                 hazardConfig = config.hazardConfig;
+            }
+
+            // Load hazard tiles
+            if (config.hazardTiles) {
+                hazardTiles = config.hazardTiles;
             }
 
             return true;
@@ -850,27 +1177,37 @@ function applyConfigToMap() {
     // Update map with current config
     if (map) {
         // Update hazard layer only - keep OpenStreetMap as base
-        updateHazardLayer();
+        updateHazardLayers();
     }
 }
 
-function updateHazardLayer() {
-    const url = document.getElementById('hazardUrl').value;
-    const show = document.getElementById('showHazardLayer').checked;
-    if (hazardLayer) {
-        map.removeLayer(hazardLayer);
-        hazardLayer = null;
-    }
-    if (show && url) {
-        hazardLayer = L.tileLayer(url, { opacity: 0.7, attribution: 'Hazard Data' });
-        hazardLayer.addTo(map);
-    }
+function updateHazardLayers() {
+    // Remove all existing hazard layers
+    hazardLayers.forEach(layer => {
+        if (map.hasLayer(layer)) {
+            map.removeLayer(layer);
+        }
+    });
+    hazardLayers = [];
+
+    // Add new hazard layers
+    hazardTiles.forEach((tile, index) => {
+        if (tile.show && tile.url) {
+            const layer = L.tileLayer(tile.url, {
+                opacity: 0.7,
+                attribution: `Hazard Data ${index + 1}`,
+                pane: 'overlayPane'
+            });
+            hazardLayers.push(layer);
+            layer.addTo(map);
+        }
+    });
 }
 
 function initMap() {
     map = L.map('map', {
-        center: [35.6895, 139.6917], // Tokyo
-        zoom: 14,
+        center: [35.00987961803894, 138.38045440614223], // Match example.ts location
+        zoom: 13,
         minZoom: 2,
         maxZoom: 18
     });
@@ -903,7 +1240,7 @@ function initMap() {
         syncGeoJsonText();
         rebindAllRiskPopups();
     });
-    updateHazardLayer();
+    updateHazardLayers();
 }
 
 // --- GeoJSON sync logic ---
@@ -969,10 +1306,10 @@ function bindRiskPopupToLayer(layer) {
         }
 
         // Lấy config hiện tại
-        const hazardUrl = document.getElementById('hazardUrl').value;
         const baseUrl = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
         const gridSize = parseInt(document.getElementById('gridSize').value);
         const zoom = parseInt(document.getElementById('zoom').value);
+        const mergeStrategy = document.getElementById('mergeStrategy').value;
         // Hiển thị popup loading
         layer.bindPopup('Calculating risk...').openPopup(e.latlng || undefined);
         try {
@@ -983,7 +1320,7 @@ function bindRiskPopupToLayer(layer) {
             // Chuẩn bị payload cho API
             const payload = {
                 polygon: polygonGeometry,
-                hazardTileUrl: hazardUrl,
+                hazardTiles: getHazardTiles(),
                 baseTileUrl: baseUrl,
                 gridSize,
                 zoom,
@@ -991,7 +1328,8 @@ function bindRiskPopupToLayer(layer) {
                 currentLocation: {
                     lat: e.latlng.lat,
                     lon: e.latlng.lng
-                }
+                },
+                mergeStrategy: mergeStrategy
             };
 
             // Gọi API
@@ -1245,8 +1583,10 @@ document.addEventListener('DOMContentLoaded', function() {
     syncGeoJsonText();
 
     // Khởi tạo giao diện cấu hình hazard
+    initializeFormWithDefaults();
     renderRiskLevels();
     renderWaterColors();
+    renderHazardTiles();
 
     // Apply loaded config to map if config was loaded
     if (configLoaded) {
@@ -1263,21 +1603,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
 
-    // Sự kiện show/hide hazard layer
-    document.getElementById('showHazardLayer').addEventListener('change', function() {
-        updateHazardLayer();
-        saveConfigToLocalStorage();
-    });
-
     // Add event listeners for config changes
-    document.getElementById('hazardUrl').addEventListener('change', function() {
-        updateHazardLayer();
-        saveConfigToLocalStorage();
-    });
-    document.getElementById('hazardUrl').addEventListener('blur', function() {
-        updateHazardLayer();
-        saveConfigToLocalStorage();
-    });
+    document.getElementById('mergeStrategy').addEventListener('change', saveConfigToLocalStorage);
 
     document.getElementById('gridSize').addEventListener('change', saveConfigToLocalStorage);
     document.getElementById('gridSize').addEventListener('blur', saveConfigToLocalStorage);

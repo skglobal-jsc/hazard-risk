@@ -80,7 +80,11 @@ async function main() {
     const result = await analyzeRiskInPolygon(
       {
         polygon: polygon.geometry,
-        hazardTiles: HOUSE_COLLAPSE_URLS.map(url => ({ url, type: 'raster' })),
+        hazardTiles: HOUSE_COLLAPSE_URLS.map((url, index) => ({
+          url,
+          type: 'raster',
+          name: `${hazardConfig.name} ${index}`,
+        })),
         baseTileUrl: WATER_TILE_URL,
         gridSize: size,
         zoom: zoom,
@@ -89,6 +93,8 @@ async function main() {
           lat: center.geometry.coordinates[1],
           lon: center.geometry.coordinates[0],
         },
+
+        mergeStrategy: 'max',
       },
       tileCache
     );

@@ -52,13 +52,15 @@ const result = await analyzeRiskInPolygon({
     {
       url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
       weight: 1.0,
+      priority: 1,
       name: 'Flood Risk'
     }
   ],
   baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
   gridSize: 100, // 100 meters
   zoom: 12,
-  currentLocation: { lat: 43.0619, lon: 141.3543 }
+  currentLocation: { lat: 43.0619, lon: 141.3543 },
+  mergeStrategy: 'max'
 }, cache);
 
 console.log('Risk statistics:', result.stats);
@@ -69,7 +71,7 @@ console.log('Water points:', result.waterCount);
 
 ### Multiple Hazard Tiles Support
 
-The library now supports analyzing risk from multiple hazard tile sources simultaneously. Each hazard tile can have its own weight to influence the final risk calculation:
+The library now supports analyzing risk from multiple hazard tile sources simultaneously with advanced merge strategies:
 
 ```typescript
 const result = await analyzeRiskInPolygon({
@@ -78,26 +80,35 @@ const result = await analyzeRiskInPolygon({
     {
       url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
       weight: 1.0,
+      priority: 1,
       name: 'Flood Risk'
     },
     {
       url: 'https://disaportaldata.gsi.go.jp/raster/02_tsunami_l2_shinsuishin_data/{z}/{x}/{y}.png',
       weight: 1.5,
+      priority: 2,
       name: 'Tsunami Risk'
     },
     {
       url: 'https://disaportaldata.gsi.go.jp/raster/03_landslide_l1_shinsuishin_data/{z}/{x}/{y}.png',
       weight: 0.8,
+      priority: 1,
       name: 'Landslide Risk'
     }
   ],
   baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
   gridSize: 100,
-  zoom: 12
+  zoom: 12,
+  mergeStrategy: 'max' // or 'average', 'weighted', 'priority'
 });
 ```
 
-The final risk level is calculated as a weighted average of all hazard tiles. Higher weights mean that hazard source has more influence on the final result.
+#### Merge Strategies
+
+- **`max`** (default): Returns the highest risk level (safest approach, may have false positives)
+- **`average`**: Returns average risk level (balanced, good for reliable sources)
+- **`weighted`**: Returns weighted average based on provided weights
+- **`priority`**: Returns risk level from tile with highest priority
 
 ### Advanced Usage with Custom Hazard Configuration
 
@@ -123,11 +134,13 @@ const result = await analyzeRiskInPolygon({
     {
       url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
       weight: 1.0,
+      priority: 1,
       name: 'Flood Risk'
     },
     {
       url: 'https://disaportaldata.gsi.go.jp/raster/02_tsunami_l2_shinsuishin_data/{z}/{x}/{y}.png',
       weight: 1.5,
+      priority: 2,
       name: 'Tsunami Risk'
     }
   ],
@@ -135,7 +148,8 @@ const result = await analyzeRiskInPolygon({
   gridSize: 100,
   zoom: 12,
   hazardConfig: tsunamiConfig,
-  currentLocation: { lat: 43.0619, lon: 141.3543 }
+  currentLocation: { lat: 43.0619, lon: 141.3543 },
+  mergeStrategy: 'weighted'
 });
 ```
 
@@ -176,12 +190,15 @@ Analyze risk in polygon for Node.js environment.
 - `options.hazardTiles`: Array of hazard tile configurations
   - `url`: URL template for hazard tiles
   - `weight?`: Weight for this hazard (default: 1)
+  - `priority?`: Priority for this hazard (default: 1)
   - `name?`: Optional name for this hazard source
+  - `type?`: Optional type for this hazard source
 - `options.baseTileUrl`: URL template for base tiles
 - `options.gridSize`: Distance between grid points (meters)
 - `options.zoom`: Tile zoom level
 - `options.hazardConfig?`: Custom hazard configuration
 - `options.currentLocation?`: Current location for nearest point detection
+- `options.mergeStrategy?`: Strategy to merge risk levels ('max', 'average', 'weighted', 'priority')
 - `cache?`: Optional TileCache instance
 
 
