@@ -1,11 +1,10 @@
 import type { TileCoord, PixelCoord } from './types';
-import { createTileProvider, createBrowserTileProvider } from './raster';
+import { createTileProvider } from './raster';
 import type { TileCache } from './cache';
 import {
   latLngToTile,
   calculateElevationFromRGB,
   getPixelFromPNG,
-  getPixelFromImageBitmap,
   preloadTiles,
   createDEMUrlList,
   readPNGFromBuffer,
@@ -163,74 +162,3 @@ export async function getElevationFromDEM(
   };
 }
 
-// Browser-specific implementation
-export async function getElevationFromDEMBrowser(
-  options: GetElevationOptions
-): Promise<ElevationResult> {
-  const { lat, lng, zoom = 17, demConfigs = DEFAULT_DEM_CONFIGS } = options;
-
-  // Create URL list for different DEM sources
-  const urlList = createDEMUrlList(demConfigs);
-
-  // Create tile providers for all DEM sources
-  const tileProviders = urlList.map(demConfig =>
-    createBrowserTileProvider(demConfig.url)
-  );
-
-  // Get tile coordinates for all DEM sources
-  const tileCoords = urlList.map(demConfig => {
-    const { tile } = latLngToTile(lat, lng, demConfig.zoom);
-    return tile;
-  });
-
-  // Preload all tiles in parallel for better performance
-  try {
-    await preloadTiles(tileCoords, tileProviders);
-  } catch (error) {
-    // Continue even if preload fails, will try individual tiles
-    console.warn(
-      'Preload failed, falling back to individual tile loading:',
-      error
-    );
-  }
-
-  // Try each DEM source until we get elevation data
-  for (let i = 0; i < urlList.length; i++) {
-    const demConfig = urlList[i];
-    const tileProvider = tileProviders[i];
-
-    try {
-      const { tile, pixel } = latLngToTile(lat, lng, demConfig.zoom);
-
-      // Fetch tile as ImageBitmap (should be cached from preload)
-      const tileImage = await tileProvider(tile.z, tile.x, tile.y);
-
-      // Get pixel RGB from ImageBitmap
-      const [r, g, b] = getPixelFromImageBitmap(tileImage, pixel.x, pixel.y);
-
-      // Calculate elevation
-      const elevation = calculateElevationFromRGB(r, g, b);
-
-      if (elevation !== null) {
-        return {
-          elevation,
-          source: demConfig.title,
-          fixed: demConfig.fixed,
-          position: { lat, lng, zoom: demConfig.zoom },
-        };
-      }
-    } catch (error) {
-      // Continue to next source if this one fails
-      console.warn(`Failed to get elevation from ${demConfig.title}:`, error);
-      continue;
-    }
-  }
-
-  // No elevation data found
-  return {
-    elevation: null,
-    source: '',
-    fixed: 0,
-    position: { lat, lng, zoom },
-  };
-}

@@ -1,6 +1,6 @@
 import { createGrid } from './grid';
 import { classifyRiskFromRGB, isWaterColor } from './risk';
-import { createBrowserTileProvider, createTileProvider } from './raster';
+import { createTileProvider } from './raster';
 import { TileCache } from './cache';
 import type { AnalyzeRiskOptions, GridPoint, HazardConfig } from './types';
 import type { Feature, Point } from 'geojson';
@@ -214,14 +214,8 @@ export async function analyzeRiskInPolygon(
   // Only use createNodeTileProvider for Node.js
   let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
   let baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
-  if (typeof window === 'undefined') {
-    hazardTileProvider = createTileProvider(hazardTileUrl, cache);
-    baseTileProvider = createTileProvider(baseTileUrl, cache);
-  } else {
-    throw new Error(
-      'Browser environment not supported in this Node.js pipeline'
-    );
-  }
+  hazardTileProvider = createTileProvider(hazardTileUrl, cache);
+  baseTileProvider = createTileProvider(baseTileUrl, cache);
 
   const grid = createGrid(options.polygon, options.gridSize, options.zoom);
   const tileCoordSet = new Set(
@@ -242,47 +236,6 @@ export async function analyzeRiskInPolygon(
   );
 }
 
-// Wrapper for Browser
-export async function analyzeRiskInPolygonBrowser(
-  options: AnalyzeRiskOptions
-): Promise<any> {
-  const { hazardTileUrl, baseTileUrl } = options;
-  // Use createBrowserTileProvider for browser
-  const hazardTileProvider = createBrowserTileProvider(hazardTileUrl);
-  const baseTileProvider = createBrowserTileProvider(baseTileUrl);
-
-  const grid = createGrid(options.polygon, options.gridSize, options.zoom);
-  const tileCoordSet = new Set(
-    grid.map(point => `${point.tile.z}/${point.tile.x}/${point.tile.y}`)
-  );
-  const tileCoords = Array.from(tileCoordSet).map(key => {
-    const [z, x, y] = key.split('/').map(Number);
-    return { z, x, y };
-  });
-  // await preloadTiles(tileCoords, hazardTileProvider, baseTileProvider);
-  // return await calculateStatsAndOptionallyNearestPoints(
-  //   grid,
-  //   hazardTileProvider,
-  //   baseTileProvider,
-  //   options.hazardConfig,
-  //   options.currentLocation
-  // );
-
-  return {
-    stats: {
-      total: 0,
-      level1: 0,
-      level2: 0,
-      level3: 0,
-      level4: 0,
-      level5: 0,
-    },
-    nearestPoints: {},
-    waterCount: 0,
-    currentLocationRisk: undefined,
-    hazardConfig: options.hazardConfig,
-  };
-}
 
 // Export necessary types and functions
 export type {
@@ -297,12 +250,10 @@ export type {
 } from './types';
 
 export { NodeRasterReader } from './raster';
-export { BrowserRasterReader, createBrowserTileProvider } from './raster';
 export { TileCache } from './cache';
 export { DEFAULT_TSUNAMI_CONFIG, createHazardConfig } from './risk';
 export {
   getElevationFromDEM,
-  getElevationFromDEMBrowser,
   DEFAULT_DEM_CONFIGS,
   type GetElevationOptions,
   type ElevationResult,
@@ -314,7 +265,6 @@ export {
   latLngToTile,
   calculateElevationFromRGB,
   getPixelFromPNG,
-  getPixelFromImageBitmap,
   preloadTiles,
   createDEMUrlList,
   readPNGFromBuffer,

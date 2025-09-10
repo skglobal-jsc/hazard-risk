@@ -10,7 +10,7 @@ A TypeScript library for analyzing disaster risk in any polygon area based on ti
 - ✅ Risk classification by RGB color
 - ✅ Water area exclusion
 - ✅ Detailed statistics calculation
-- ✅ Support for both Node.js and Browser environments
+- ✅ Node.js environment support
 - ✅ TypeScript with full type safety
 - ✅ Tile caching with LRU algorithm
 - ✅ Concurrent tile preloading
@@ -59,20 +59,6 @@ console.log('Total points:', result.total);
 console.log('Water points:', result.waterCount);
 ```
 
-### Browser Environment
-
-```typescript
-import { analyzeRiskInPolygonBrowser } from '@sk-global/hazard-risk';
-
-const result = await analyzeRiskInPolygonBrowser({
-  polygon,
-  hazardTileUrl: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
-  baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
-  gridSize: 100,
-  zoom: 12,
-  currentLocation: { lat: 43.0619, lon: 141.3543 }
-});
-```
 
 ### Advanced Usage with Custom Hazard Configuration
 
@@ -128,27 +114,6 @@ const result = await analyzeRiskInPolygon({
 }
 ```
 
-### Browser Result Structure
-
-```typescript
-{
-  stats: [
-    { level: 0, count: 2174, ratio: 49.43 },
-    { level: 2, count: 1294, ratio: 29.42 },
-    { level: 4, count: 917, ratio: 20.85 },
-    { level: 5, count: 11, ratio: 0.25 },
-    { level: 6, count: 2, ratio: 0.05 }
-  ],
-  waterPointCount: 0,
-  nearestPoint: {
-    lat: 43.0623,
-    lon: 141.3538,
-    riskLevel: 2,
-    distance: 56.56
-  },
-  hazardConfig: { /* hazard configuration */ }
-}
-```
 
 ## API Reference
 
@@ -166,11 +131,6 @@ Analyze risk in polygon for Node.js environment.
 - `options.currentLocation?`: Current location for nearest point detection
 - `cache?`: Optional TileCache instance
 
-### `analyzeRiskInPolygonBrowser(options)`
-
-Analyze risk in polygon for browser environment.
-
-**Parameters:** Same as `analyzeRiskInPolygon` except no cache parameter.
 
 ### `TileCache(maxSize, ttl)`
 
@@ -210,11 +170,6 @@ Get elevation data from DEM tiles for Node.js environment.
 }
 ```
 
-### `getElevationFromDEMBrowser(options)`
-
-Get elevation data from DEM tiles for browser environment.
-
-**Parameters:** Same as `getElevationFromDEM` except no cache parameter.
 
 ## DEM Elevation Data
 
@@ -267,7 +222,6 @@ The library supports dynamic risk classification based on RGB colors. Default ts
 ## Environment Support
 
 - ✅ **Node.js**: Full support with PNG processing via pngjs
-- ✅ **Browser**: Full support with Canvas API for pixel reading
 - ✅ **TypeScript**: Complete type definitions
 - ✅ **AWS Lambda**: Optimized for serverless environments
 

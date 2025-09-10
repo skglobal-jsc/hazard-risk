@@ -1,4 +1,4 @@
-import { getElevationFromDEM, getElevationFromDEMBrowser, DEFAULT_DEM_CONFIGS } from './src/index';
+import { getElevationFromDEM, DEFAULT_DEM_CONFIGS } from './src/index';
 
 // Example usage for Node.js
 async function exampleNodeJS() {
@@ -22,27 +22,6 @@ async function exampleNodeJS() {
   }
 }
 
-// Example usage for Browser
-async function exampleBrowser() {
-  try {
-    // Get elevation for Tokyo (35.6762, 139.6503)
-    const result = await getElevationFromDEMBrowser({
-      lat: 35.6762,
-      lng: 139.6503,
-      zoom: 17
-    });
-
-    if (result.elevation !== null) {
-      console.log(`Elevation: ${result.elevation.toFixed(result.fixed)}m`);
-      console.log(`Source: ${result.source}`);
-      console.log(`Position: ${result.position.lat}, ${result.position.lng}`);
-    } else {
-      console.log('No elevation data found for this location');
-    }
-  } catch (error) {
-    console.error('Error getting elevation:', error);
-  }
-}
 
 // Example with custom DEM configuration
 async function exampleCustomDEM() {
@@ -99,15 +78,8 @@ async function exampleWithCache() {
   }
 }
 
-// Run examples based on environment
-if (typeof window === 'undefined') {
-  // Node.js environment
-  console.log('Running Node.js examples...');
-  exampleNodeJS();
-  // exampleCustomDEM();
-  // exampleWithCache();
-} else {
-  // Browser environment
-  console.log('Running Browser examples...');
-  exampleBrowser();
-}
+// Run examples for Node.js environment
+console.log('Running Node.js examples...');
+exampleNodeJS();
+// exampleCustomDEM();
+// exampleWithCache();

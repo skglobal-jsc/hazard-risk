@@ -1,6 +1,5 @@
 import {
   getElevationFromDEM,
-  getElevationFromDEMBrowser,
   DEFAULT_DEM_CONFIGS,
   type GetElevationOptions,
   type ElevationResult,
@@ -88,39 +87,6 @@ describe('DEM Functions', () => {
     });
   });
 
-  describe('getElevationFromDEMBrowser', () => {
-    it('should return proper structure', async () => {
-      const options: GetElevationOptions = {
-        lat: 35.6762,
-        lng: 139.6503,
-        zoom: 17,
-      };
-
-      const result = await getElevationFromDEMBrowser(options);
-
-      expect(result).toHaveProperty('elevation');
-      expect(result).toHaveProperty('source');
-      expect(result).toHaveProperty('fixed');
-      expect(result).toHaveProperty('position');
-      expect(result.position).toHaveProperty('lat');
-      expect(result.position).toHaveProperty('lng');
-      expect(result.position).toHaveProperty('zoom');
-    });
-
-    it('should handle invalid coordinates gracefully', async () => {
-      const options: GetElevationOptions = {
-        lat: 999, // Invalid latitude
-        lng: 999, // Invalid longitude
-        zoom: 17,
-      };
-
-      const result = await getElevationFromDEMBrowser(options);
-
-      // Should return null elevation for invalid coordinates
-      expect(result.elevation).toBeNull();
-      expect(result.source).toBe('');
-    });
-  });
 
   describe('Custom DEM configurations', () => {
     it('should work with custom DEM configs', async () => {

@@ -62,24 +62,6 @@ export function getPixelFromPNG(
   return [data[idx] || 0, data[idx + 1] || 0, data[idx + 2] || 0];
 }
 
-// Get pixel RGB from ImageBitmap (browser)
-export function getPixelFromImageBitmap(
-  imageBitmap: ImageBitmap,
-  x: number,
-  y: number
-): [number, number, number] {
-  // Create canvas to read pixel
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  canvas.width = 256;
-  canvas.height = 256;
-
-  ctx.drawImage(imageBitmap, 0, 0);
-  const imageData = ctx.getImageData(x, y, 1, 1);
-  const data = imageData.data;
-
-  return [data[0], data[1], data[2]];
-}
 
 // Calculate elevation from RGB values
 export function calculateElevationFromRGB(
