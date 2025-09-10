@@ -4,29 +4,21 @@ import { HazardConfig } from './src/types';
 import { point } from '@turf/helpers';
 import circle from '@turf/circle';
 
-const HOUSE_COLLAPSE_URLS = [
-  'https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_hanran_data/{z}/{x}/{y}.png',
-  'https://disaportaldata.gsi.go.jp/raster/01_flood_l2_kaokutoukai_kagan_data/{z}/{x}/{y}.png',
-];
+const RADIUS = 3000;
+const GRID_SIZE = 80;
+const ZOOM = 12;
 
-const WATER_TILE_URL =
+const TILE_URL =
+  'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png';
+const BASE_TILE_URL =
   'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
-
-const getSizeAndZoom = (radius: number) => {
-  if (radius < 100) return { size: 2, zoom: 16 };
-  if (radius >= 100 && radius < 300) return { size: 5, zoom: 15 };
-  if (radius >= 300 && radius < 500) return { size: 7, zoom: 14 };
-  if (radius >= 500 && radius < 1000) return { size: 10, zoom: 14 };
-  if (radius >= 1000 && radius < 3000) return { size: 20, zoom: 13 };
-  return { size: 80, zoom: 12 }; // Default for radius >= 3000
-};
 
 async function main() {
   console.log('🚀 Bắt đầu phân tích rủi ro...\n');
 
   // Tạo polygon hình tròn bán kính 100m quanh vị trí mới
-  const center = point([138.38045440614223, 35.00987961803894]);
-  const radius = 1000;
+  const center = point([141.3543113869357, 43.06194898993809]);
+  const radius = RADIUS;
   const polygon = circle(center, radius, { units: 'meters' });
 
   // Tạo cache với preload
@@ -34,7 +26,7 @@ async function main() {
 
   // Hazard config theo bảng màu GSI Japan
   const hazardConfig: HazardConfig = {
-    name: 'House collapse',
+    name: 'Tsunami Depth (GSI Japan)',
     levels: {
       0: {
         name: 'level0',
@@ -43,20 +35,52 @@ async function main() {
       },
       1: {
         name: 'level1',
-        color: '#FF0000',
-        description: 'Risk of flooding',
+        color: '#FFFFB3',
+        description: '<0.3m',
+      },
+      2: {
+        name: 'level2',
+        color: '#F7F5A9',
+        description: '<0.5m',
+      },
+      3: {
+        name: 'level3',
+        color: '#F8E1A6',
+        description: '0.5~1m',
+      },
+      4: {
+        name: 'level4',
+        color: '#FFD8C0',
+        description: '0.5~3m',
+      },
+      5: {
+        name: 'level5',
+        color: '#FFB7B7',
+        description: '3~5m',
+      },
+      6: {
+        name: 'level6',
+        color: '#FF9191',
+        description: '5~10m',
+      },
+      7: {
+        name: 'level7',
+        color: '#F285C9',
+        description: '10~20m',
+      },
+      8: {
+        name: 'level8',
+        color: '#DC7ADC',
+        description: '>20m',
       },
     },
-    waterColors: ['#bed2ff'],
+    waterColors: ['#bed2ff', '#f7f5a9', '#8bb8ff', '#6aa8ff'],
   };
 
   console.log('📍 Vị trí phân tích:');
   console.log(`   Lat: ${center.geometry.coordinates[1]}`);
   console.log(`   Lon: ${center.geometry.coordinates[0]}`);
   console.log(`   Bán kính: ${radius * 1000}m\n`);
-  const { size, zoom } = getSizeAndZoom(radius);
-  console.log(`   Size: ${size}`);
-  console.log(`   Zoom: ${zoom}`);
 
   console.log('🗺️  Hazard Config:');
   console.log(`   Tên: ${hazardConfig.name}`);
@@ -80,15 +104,12 @@ async function main() {
     const result = await analyzeRiskInPolygon(
       {
         polygon: polygon.geometry,
-        hazardTiles: HOUSE_COLLAPSE_URLS.map(url => ({ url, type: 'raster' })),
-        baseTileUrl: WATER_TILE_URL,
-        gridSize: size,
-        zoom: zoom,
+        hazardTiles: [{ url: TILE_URL }],
+        baseTileUrl: BASE_TILE_URL,
+        gridSize: GRID_SIZE,
+        zoom: ZOOM,
         hazardConfig: hazardConfig,
-        currentLocation: {
-          lat: center.geometry.coordinates[1],
-          lon: center.geometry.coordinates[0],
-        },
+        currentLocation: { lat: center.geometry.coordinates[1], lon: center.geometry.coordinates[0] },
       },
       tileCache
     );

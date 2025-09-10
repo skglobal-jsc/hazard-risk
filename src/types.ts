@@ -34,10 +34,20 @@ export interface GridPoint {
   isWater: boolean;
 }
 
+// Hazard tile configuration
+
+export type HazardTileType = 'raster' | 'wms' | 'arcgis';
+export interface HazardTileConfig {
+  url: string; // URL template for hazard tile
+  weight?: number; // Weight for this hazard (default: 1)
+  name?: string; // Optional name for this hazard source
+  type?: HazardTileType; // Optional type for this hazard source
+}
+
 // Analysis options (simplified)
 export interface AnalyzeRiskOptions {
   polygon: GeoJSONPolygon;
-  hazardTileUrl: string; // URL template for hazard tile
+  hazardTiles: HazardTileConfig[]; // Array of hazard tile configurations
   baseTileUrl: string; // URL template for base tile
   gridSize: number; // meters
   zoom: number;

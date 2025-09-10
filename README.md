@@ -5,6 +5,7 @@ A TypeScript library for analyzing disaster risk in any polygon area based on ti
 ## Features
 
 - ✅ Risk analysis in any polygon (GeoJSON)
+- ✅ **Multiple hazard tile sources support** with weighted risk calculation
 - ✅ Automatic grid generation with customizable resolution
 - ✅ Pixel reading from tile images (hazard map + base map)
 - ✅ Risk classification by RGB color
@@ -47,7 +48,13 @@ const polygon = {
 
 const result = await analyzeRiskInPolygon({
   polygon,
-  hazardTileUrl: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
+  hazardTiles: [
+    {
+      url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
+      weight: 1.0,
+      name: 'Flood Risk'
+    }
+  ],
   baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
   gridSize: 100, // 100 meters
   zoom: 12,
@@ -59,6 +66,38 @@ console.log('Total points:', result.total);
 console.log('Water points:', result.waterCount);
 ```
 
+
+### Multiple Hazard Tiles Support
+
+The library now supports analyzing risk from multiple hazard tile sources simultaneously. Each hazard tile can have its own weight to influence the final risk calculation:
+
+```typescript
+const result = await analyzeRiskInPolygon({
+  polygon,
+  hazardTiles: [
+    {
+      url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
+      weight: 1.0,
+      name: 'Flood Risk'
+    },
+    {
+      url: 'https://disaportaldata.gsi.go.jp/raster/02_tsunami_l2_shinsuishin_data/{z}/{x}/{y}.png',
+      weight: 1.5,
+      name: 'Tsunami Risk'
+    },
+    {
+      url: 'https://disaportaldata.gsi.go.jp/raster/03_landslide_l1_shinsuishin_data/{z}/{x}/{y}.png',
+      weight: 0.8,
+      name: 'Landslide Risk'
+    }
+  ],
+  baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
+  gridSize: 100,
+  zoom: 12
+});
+```
+
+The final risk level is calculated as a weighted average of all hazard tiles. Higher weights mean that hazard source has more influence on the final result.
 
 ### Advanced Usage with Custom Hazard Configuration
 
@@ -80,8 +119,19 @@ const tsunamiConfig = createHazardConfig('Tsunami Depth', {
 
 const result = await analyzeRiskInPolygon({
   polygon,
-  hazardTileUrl: 'https://.../{z}/{x}/{y}.png',
-  baseTileUrl: 'https://.../{z}/{x}/{y}.png',
+  hazardTiles: [
+    {
+      url: 'https://disaportaldata.gsi.go.jp/raster/01_flood_l1_shinsuishin_newlegend_data/{z}/{x}/{y}.png',
+      weight: 1.0,
+      name: 'Flood Risk'
+    },
+    {
+      url: 'https://disaportaldata.gsi.go.jp/raster/02_tsunami_l2_shinsuishin_data/{z}/{x}/{y}.png',
+      weight: 1.5,
+      name: 'Tsunami Risk'
+    }
+  ],
+  baseTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
   gridSize: 100,
   zoom: 12,
   hazardConfig: tsunamiConfig,
@@ -123,7 +173,10 @@ Analyze risk in polygon for Node.js environment.
 
 **Parameters:**
 - `options.polygon`: GeoJSON Polygon
-- `options.hazardTileUrl`: URL template for hazard tiles
+- `options.hazardTiles`: Array of hazard tile configurations
+  - `url`: URL template for hazard tiles
+  - `weight?`: Weight for this hazard (default: 1)
+  - `name?`: Optional name for this hazard source
 - `options.baseTileUrl`: URL template for base tiles
 - `options.gridSize`: Distance between grid points (meters)
 - `options.zoom`: Tile zoom level

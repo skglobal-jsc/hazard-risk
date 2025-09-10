@@ -11,13 +11,21 @@ import { getPixelFromPNG, readPNGFromBuffer, latLngToTile } from './utils';
 // Preload all hazard and base tiles in parallel
 async function preloadRiskTiles(
   tileCoords: { z: number; x: number; y: number }[],
-  hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>,
+  hazardTileProviders: ((z: number, x: number, y: number) => Promise<Buffer>)[],
   baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>
 ) {
-  await Promise.all([
-    ...tileCoords.map(coord => hazardTileProvider(coord.z, coord.x, coord.y)),
+  const allPromises = [
     ...tileCoords.map(coord => baseTileProvider(coord.z, coord.x, coord.y)),
-  ]);
+  ];
+
+  // Add all hazard tile providers
+  for (const hazardTileProvider of hazardTileProviders) {
+    allPromises.push(
+      ...tileCoords.map(coord => hazardTileProvider(coord.z, coord.x, coord.y))
+    );
+  }
+
+  await Promise.all(allPromises);
 }
 
 // Group points by tile
@@ -45,19 +53,54 @@ function getRiskInfoFromTile(
   return { riskLevel, isWater };
 }
 
+// Calculate combined risk from multiple hazard tiles
+function getCombinedRiskFromTiles(
+  hazardPngs: (any | undefined)[],
+  basePng: any | undefined,
+  px: number,
+  py: number,
+  hazardConfig: HazardConfig | undefined,
+  weights: number[] = []
+) {
+  // Get base tile water detection
+  const [br, bg, bb] = getPixelFromPNG(basePng, px, py);
+  const isWater = isWaterColor(br, bg, bb, hazardConfig);
+
+  if (isWater) {
+    return { riskLevel: 0, isWater: true };
+  }
+
+  // Calculate weighted risk from all hazard tiles
+  let totalWeightedRisk = 0;
+  let totalWeight = 0;
+
+  for (let i = 0; i < hazardPngs.length; i++) {
+    const hazardPng = hazardPngs[i];
+    const weight = weights[i] || 1;
+
+    if (hazardPng) {
+      const [r, g, b] = getPixelFromPNG(hazardPng, px, py);
+      const riskLevel = classifyRiskFromRGB(r, g, b, hazardConfig);
+      totalWeightedRisk += riskLevel * weight;
+      totalWeight += weight;
+    }
+  }
+
+  // Calculate average weighted risk level
+  const combinedRiskLevel =
+    totalWeight > 0 ? Math.round(totalWeightedRisk / totalWeight) : 0;
+
+  return { riskLevel: combinedRiskLevel, isWater: false };
+}
+
 // Calculate statistics and optionally nearestPoints
 async function calculateStatsAndOptionallyNearestPoints(
   grid: GridPoint[],
-  hazardTileProvider: {
-    (z: number, x: number, y: number): Promise<Buffer>;
-    (arg0: any, arg1: any, arg2: any): any;
-  },
-  baseTileProvider: {
-    (z: number, x: number, y: number): Promise<Buffer>;
-    (arg0: any, arg1: any, arg2: any): any;
-  },
+  hazardTileProviders: ((z: number, x: number, y: number) => Promise<Buffer>)[],
+  baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>,
   hazardConfig: HazardConfig | undefined,
-  currentLocation: { lat: number; lon: number } | undefined // can be undefined
+  currentLocation: { lat: number; lon: number } | undefined, // can be undefined
+  weights: number[] = []
 ): Promise<{
   stats: { [level: string]: number; total: number };
   nearestPoints?: any;
@@ -75,7 +118,7 @@ async function calculateStatsAndOptionallyNearestPoints(
   // Determine risk at currentLocation (if exists)
   let currentLocationRisk: { riskLevel: number; isWater: boolean } | undefined =
     undefined;
-    if (currentLocation) {
+  if (currentLocation) {
     // Method 1: Try to find exact point in grid
     let samplePoint = grid.find(
       pt =>
@@ -89,7 +132,7 @@ async function calculateStatsAndOptionallyNearestPoints(
       for (const pt of grid) {
         const distance = Math.sqrt(
           Math.pow(pt.lat - currentLocation.lat, 2) +
-          Math.pow(pt.lon - currentLocation.lon, 2)
+            Math.pow(pt.lon - currentLocation.lon, 2)
         );
         if (distance < minDistance) {
           minDistance = distance;
@@ -102,7 +145,11 @@ async function calculateStatsAndOptionallyNearestPoints(
     if (!samplePoint) {
       // Get zoom from first grid point or use default
       const zoom = grid.length > 0 ? grid[0].tile.z : 12;
-      const { tile: exactTile, pixel: exactPixel } = latLngToTile(currentLocation.lat, currentLocation.lon, zoom);
+      const { tile: exactTile, pixel: exactPixel } = latLngToTile(
+        currentLocation.lat,
+        currentLocation.lon,
+        zoom
+      );
 
       // Check if this tile is within our analyzed area
       const tileKey = `${exactTile.z}/${exactTile.x}/${exactTile.y}`;
@@ -114,26 +161,39 @@ async function calculateStatsAndOptionallyNearestPoints(
           lon: currentLocation.lon,
           tile: exactTile,
           pixel: exactPixel,
-          isWater: false
+          isWater: false,
         };
       }
     }
     if (samplePoint) {
       console.log('samplePoint', samplePoint);
       const { z, x, y } = samplePoint.tile;
-      let hazardPng: any | undefined, basePng: any | undefined;
-      try {
-        hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y));
-      } catch {}
+      let hazardPngs: (any | undefined)[] = [],
+        basePng: any | undefined;
+
+      // Load all hazard tiles
+      for (const hazardTileProvider of hazardTileProviders) {
+        try {
+          const hazardPng = readPNGFromBuffer(
+            await hazardTileProvider(z, x, y)
+          );
+          hazardPngs.push(hazardPng);
+        } catch {
+          hazardPngs.push(undefined);
+        }
+      }
+
       try {
         basePng = readPNGFromBuffer(await baseTileProvider(z, x, y));
       } catch {}
-      const { riskLevel, isWater } = getRiskInfoFromTile(
-        hazardPng,
+
+      const { riskLevel, isWater } = getCombinedRiskFromTiles(
+        hazardPngs,
         basePng,
         samplePoint.pixel.x,
         samplePoint.pixel.y,
-        hazardConfig
+        hazardConfig,
+        weights
       );
       currentLocationRisk = { riskLevel, isWater };
     }
@@ -142,20 +202,33 @@ async function calculateStatsAndOptionallyNearestPoints(
   await Promise.all(
     Array.from(tilePointMap.entries()).map(async ([key, points]) => {
       const { z, x, y } = points[0].tile;
-      let hazardPng: any | undefined, basePng: any | undefined;
-      try {
-        hazardPng = readPNGFromBuffer(await hazardTileProvider(z, x, y));
-      } catch {}
+      let hazardPngs: (any | undefined)[] = [],
+        basePng: any | undefined;
+
+      // Load all hazard tiles
+      for (const hazardTileProvider of hazardTileProviders) {
+        try {
+          const hazardPng = readPNGFromBuffer(
+            await hazardTileProvider(z, x, y)
+          );
+          hazardPngs.push(hazardPng);
+        } catch {
+          hazardPngs.push(undefined);
+        }
+      }
+
       try {
         basePng = readPNGFromBuffer(await baseTileProvider(z, x, y));
       } catch {}
+
       for (const p of points) {
-        const { riskLevel, isWater } = getRiskInfoFromTile(
-          hazardPng,
+        const { riskLevel, isWater } = getCombinedRiskFromTiles(
+          hazardPngs,
           basePng,
           p.pixel.x,
           p.pixel.y,
-          hazardConfig
+          hazardConfig,
+          weights
         );
         if (isWater) {
           waterCount++;
@@ -209,13 +282,17 @@ export async function analyzeRiskInPolygon(
   options: AnalyzeRiskOptions,
   cache?: TileCache
 ): Promise<any> {
-  const { hazardTileUrl, baseTileUrl } = options;
+  const { hazardTiles, baseTileUrl } = options;
   // console.log('analyzeRiskInPolygon', JSON.stringify(options, null, 2));
-  // Only use createNodeTileProvider for Node.js
-  let hazardTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
-  let baseTileProvider: (z: number, x: number, y: number) => Promise<Buffer>;
-  hazardTileProvider = createTileProvider(hazardTileUrl, cache);
-  baseTileProvider = createTileProvider(baseTileUrl, cache);
+
+  // Create tile providers for all hazard tiles
+  const hazardTileProviders = hazardTiles.map(hazardTile =>
+    createTileProvider(hazardTile.url, cache)
+  );
+  const baseTileProvider = createTileProvider(baseTileUrl, cache);
+
+  // Extract weights from hazard tile configurations
+  const weights = hazardTiles.map(hazardTile => hazardTile.weight || 1);
 
   const grid = createGrid(options.polygon, options.gridSize, options.zoom);
   const tileCoordSet = new Set(
@@ -225,17 +302,17 @@ export async function analyzeRiskInPolygon(
     const [z, x, y] = key.split('/').map(Number);
     return { z, x, y };
   });
-  await preloadRiskTiles(tileCoords, hazardTileProvider, baseTileProvider);
+  await preloadRiskTiles(tileCoords, hazardTileProviders, baseTileProvider);
 
   return await calculateStatsAndOptionallyNearestPoints(
     grid,
-    hazardTileProvider,
+    hazardTileProviders,
     baseTileProvider,
     options.hazardConfig,
-    options.currentLocation
+    options.currentLocation,
+    weights
   );
 }
-
 
 // Export necessary types and functions
 export type {
@@ -247,6 +324,7 @@ export type {
   GeoJSONPolygon,
   HazardConfig,
   RiskLevelConfig,
+  HazardTileConfig,
 } from './types';
 
 export { NodeRasterReader } from './raster';
